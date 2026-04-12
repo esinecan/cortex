@@ -70,3 +70,20 @@ vendored:
     discovery_state: implement
     curated_tools:
       - run_command
+
+  inspector:
+    entry: servers/inspector/dist/server.js
+    discovery_state: debug
+    curated_tools:
+      - insp_connect
+      - insp_disconnect
+      - insp_tools_list
+      - insp_tools_call
+      - insp_read_events
+      - insp_list_sessions
+      - insp_inject_steering
+      - insp_prompts_list
+      - insp_prompts_get
+      - insp_resources_list
+      - insp_resources_read
+      - insp_resources_templates

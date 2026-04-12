@@ -2,10 +2,7 @@ import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { StateManager } from '../state.js';
 import { updateTask } from '../tasks.js';
-
-function success(text: string) {
-  return { content: [{ type: 'text' as const, text }] };
-}
+import { success } from '../respond.js';
 
 /**
  * Validate tools across three progressive levels:
@@ -14,22 +11,28 @@ function success(text: string) {
  * L3 -- browser automation and E2E (tools from Playwright proxy).
  */
 export function registerValidateTools(server: McpServer, state: StateManager): void {
-
   // -- Level 1: Prerequisites and setup --
 
   const prerequisitesHandle = server.registerTool(
     'validate_prerequisites',
     {
-      description: 'Check infrastructure readiness for testing. Returns a checklist with commands to verify each component. Configure checks via CORTEX_PREREQS_FILE env var or pass inline.',
+      description:
+        'Check infrastructure readiness for testing. Returns a checklist with commands to verify each component. Configure checks via CORTEX_PREREQS_FILE env var or pass inline.',
       inputSchema: {
-        checks: z.preprocess(
-          (val) => typeof val === 'string' ? JSON.parse(val) : val,
-          z.array(z.object({
-            name: z.string().describe('Component name'),
-            check: z.string().describe('Shell command to verify'),
-            fix: z.string().describe('Remediation command'),
-          })).optional(),
-        ).describe('Inline prerequisite checks. If omitted, returns a generic template.'),
+        checks: z
+          .preprocess(
+            (val) => (typeof val === 'string' ? JSON.parse(val) : val),
+            z
+              .array(
+                z.object({
+                  name: z.string().describe('Component name'),
+                  check: z.string().describe('Shell command to verify'),
+                  fix: z.string().describe('Remediation command'),
+                }),
+              )
+              .optional(),
+          )
+          .describe('Inline prerequisite checks. If omitted, returns a generic template.'),
       },
     },
     async (args) => {
@@ -49,33 +52,42 @@ export function registerValidateTools(server: McpServer, state: StateManager): v
           lines.push(`| ${c.name} | \`${c.check}\` | \`${c.fix}\` |`);
         }
 
-        lines.push('', 'Run the checks via `run_command`, then `validate_advance` when ready for L2.');
+        lines.push(
+          '',
+          'Run the checks via `run_command`, then `validate_advance` when ready for L2.',
+        );
 
         const taskId = state.getActiveTaskId();
         if (taskId) {
-          updateTask(taskId, { findings: `[validate:prerequisites] ${checks.length} checks` }, 'validate');
+          updateTask(
+            taskId,
+            { findings: `[validate:prerequisites] ${checks.length} checks` },
+            'validate',
+          );
         }
 
         return success(lines.join('\n'));
       }
 
       // No checks provided -- return template
-      return success([
-        '## Prerequisites Check',
-        '',
-        'No checks configured. Pass `checks` parameter with your environment requirements, or create a config file.',
-        '',
-        '### Template',
-        '```json',
-        '[',
-        '  { "name": "Node version", "check": "node -v", "fix": "nvm use <version>" },',
-        '  { "name": "Dev server", "check": "lsof -i :<port> -sTCP:LISTEN && echo UP || echo DOWN", "fix": "npm run dev" },',
-        '  { "name": "Database", "check": "pg_isready -h localhost", "fix": "docker-compose up -d postgres" }',
-        ']',
-        '```',
-        '',
-        'Pass this array as the `checks` parameter to validate_prerequisites.',
-      ].join('\n'));
+      return success(
+        [
+          '## Prerequisites Check',
+          '',
+          'No checks configured. Pass `checks` parameter with your environment requirements, or create a config file.',
+          '',
+          '### Template',
+          '```json',
+          '[',
+          '  { "name": "Node version", "check": "node -v", "fix": "nvm use <version>" },',
+          '  { "name": "Dev server", "check": "lsof -i :<port> -sTCP:LISTEN && echo UP || echo DOWN", "fix": "npm run dev" },',
+          '  { "name": "Database", "check": "pg_isready -h localhost", "fix": "docker-compose up -d postgres" }',
+          ']',
+          '```',
+          '',
+          'Pass this array as the `checks` parameter to validate_prerequisites.',
+        ].join('\n'),
+      );
     },
   );
   state.registerTool('validate_prerequisites', 'validate', prerequisitesHandle);
@@ -83,7 +95,8 @@ export function registerValidateTools(server: McpServer, state: StateManager): v
   const setupHandle = server.registerTool(
     'validate_setup',
     {
-      description: 'Get a setup recipe by name. Recipes are loaded from .cortex/recipes/<name>.md in your project root if present, or returns guidance on creating one.',
+      description:
+        'Get a setup recipe by name. Recipes are loaded from .cortex/recipes/<name>.md in your project root if present, or returns guidance on creating one.',
       inputSchema: {
         target: z.string().describe('Recipe name (e.g. "local_ci", "dev_server", "e2e_tests")'),
       },
@@ -109,29 +122,31 @@ export function registerValidateTools(server: McpServer, state: StateManager): v
         }
       }
 
-      return success([
-        `## Setup Recipe: ${args.target}`,
-        '',
-        `No recipe found for "${args.target}".`,
-        '',
-        'To create one, add a markdown file at:',
-        `  .cortex/recipes/${args.target}.md`,
-        '',
-        'The file should contain step-by-step setup instructions, commands, config paths, and known gotchas.',
-        '',
-        '### Example structure',
-        '```markdown',
-        '## Local Dev Server',
-        '',
-        '```bash',
-        'npm run dev',
-        '```',
-        '',
-        '**Port:** 3000',
-        '**Config:** .env.local',
-        '**Depends on:** PostgreSQL (docker-compose up -d postgres)',
-        '```',
-      ].join('\n'));
+      return success(
+        [
+          `## Setup Recipe: ${args.target}`,
+          '',
+          `No recipe found for "${args.target}".`,
+          '',
+          'To create one, add a markdown file at:',
+          `  .cortex/recipes/${args.target}.md`,
+          '',
+          'The file should contain step-by-step setup instructions, commands, config paths, and known gotchas.',
+          '',
+          '### Example structure',
+          '```markdown',
+          '## Local Dev Server',
+          '',
+          '```bash',
+          'npm run dev',
+          '```',
+          '',
+          '**Port:** 3000',
+          '**Config:** .env.local',
+          '**Depends on:** PostgreSQL (docker-compose up -d postgres)',
+          '```',
+        ].join('\n'),
+      );
     },
   );
   state.registerTool('validate_setup', 'validate', setupHandle);
@@ -139,7 +154,8 @@ export function registerValidateTools(server: McpServer, state: StateManager): v
   const advanceHandle = server.registerTool(
     'validate_advance',
     {
-      description: 'Advance to the next validate level. L1->L2 adds flow verification. L2->L3 adds browser automation.',
+      description:
+        'Advance to the next validate level. L1->L2 adds flow verification. L2->L3 adds browser automation.',
     },
     async () => {
       const result = state.advanceLevel();
@@ -150,7 +166,9 @@ export function registerValidateTools(server: McpServer, state: StateManager): v
         3: 'Level 3: Browser automation enabled. Playwright tools available for UI verification.',
       };
 
-      return success(`Advanced to validate ${levelDescriptions[result.level!] || `level ${result.level}`}`);
+      return success(
+        `Advanced to validate ${levelDescriptions[result.level!] || `level ${result.level}`}`,
+      );
     },
   );
   state.registerTool('validate_advance', 'validate', advanceHandle);
@@ -160,27 +178,33 @@ export function registerValidateTools(server: McpServer, state: StateManager): v
   const integrationFlowHandle = server.registerTool(
     'validate_integration_flow',
     {
-      description: 'Verify an entity\'s end-to-end pipeline health. Define stages to check, or get a template to fill in.',
+      description:
+        "Verify an entity's end-to-end pipeline health. Define stages to check, or get a template to fill in.",
       inputSchema: {
         entity_id: z.string().describe('Primary entity identifier'),
-        stages: z.preprocess(
-          (val) => typeof val === 'string' ? JSON.parse(val) : val,
-          z.array(z.object({
-            name: z.string().describe('Stage name'),
-            check: z.string().describe('Shell command or query to verify this stage'),
-            expect: z.string().describe('What a healthy result looks like'),
-          })).optional(),
-        ).describe('Pipeline stages to check. If omitted, returns a template.'),
+        stages: z
+          .preprocess(
+            (val) => (typeof val === 'string' ? JSON.parse(val) : val),
+            z
+              .array(
+                z.object({
+                  name: z.string().describe('Stage name'),
+                  check: z.string().describe('Shell command or query to verify this stage'),
+                  expect: z.string().describe('What a healthy result looks like'),
+                }),
+              )
+              .optional(),
+          )
+          .describe('Pipeline stages to check. If omitted, returns a template.'),
       },
     },
     async (args) => {
-      const stages = args.stages as Array<{ name: string; check: string; expect: string }> | undefined;
+      const stages = args.stages as
+        | Array<{ name: string; check: string; expect: string }>
+        | undefined;
 
       if (stages && stages.length > 0) {
-        const lines = [
-          `## Integration Flow Verification: ${args.entity_id}`,
-          '',
-        ];
+        const lines = [`## Integration Flow Verification: ${args.entity_id}`, ''];
 
         for (let i = 0; i < stages.length; i++) {
           const s = stages[i];
@@ -198,43 +222,49 @@ export function registerValidateTools(server: McpServer, state: StateManager): v
 
         const taskId = state.getActiveTaskId();
         if (taskId) {
-          updateTask(taskId, {
-            findings: `[validate:flow] ${args.entity_id} -- ${stages.length}-stage health check`,
-          }, 'validate');
+          updateTask(
+            taskId,
+            {
+              findings: `[validate:flow] ${args.entity_id} -- ${stages.length}-stage health check`,
+            },
+            'validate',
+          );
         }
 
         return success(lines.join('\n'));
       }
 
       // No stages -- return template
-      return success([
-        `## Integration Flow Verification: ${args.entity_id}`,
-        '',
-        'Define your pipeline stages. Example for an event-driven system:',
-        '',
-        '```json',
-        '[',
-        '  {',
-        '    "name": "Ingestion check",',
-        '    "check": "<query your DB for entity record>",',
-        '    "expect": "Record exists with status processed"',
-        '  },',
-        '  {',
-        '    "name": "Queue/outbox check",',
-        '    "check": "<query outbox or message queue>",',
-        '    "expect": "Messages with status sent, recent timestamps"',
-        '  },',
-        '  {',
-        '    "name": "Downstream effect check",',
-        '    "check": "<query downstream service DB>",',
-        '    "expect": "Derived records exist with non-zero values"',
-        '  }',
-        ']',
-        '```',
-        '',
-        'Pass this array as the `stages` parameter.',
-        'Use your database tools (could be an external tool paired with cortex) to build the check commands.',
-      ].join('\n'));
+      return success(
+        [
+          `## Integration Flow Verification: ${args.entity_id}`,
+          '',
+          'Define your pipeline stages. Example for an event-driven system:',
+          '',
+          '```json',
+          '[',
+          '  {',
+          '    "name": "Ingestion check",',
+          '    "check": "<query your DB for entity record>",',
+          '    "expect": "Record exists with status processed"',
+          '  },',
+          '  {',
+          '    "name": "Queue/outbox check",',
+          '    "check": "<query outbox or message queue>",',
+          '    "expect": "Messages with status sent, recent timestamps"',
+          '  },',
+          '  {',
+          '    "name": "Downstream effect check",',
+          '    "check": "<query downstream service DB>",',
+          '    "expect": "Derived records exist with non-zero values"',
+          '  }',
+          ']',
+          '```',
+          '',
+          'Pass this array as the `stages` parameter.',
+          'Use your database tools (could be an external tool paired with cortex) to build the check commands.',
+        ].join('\n'),
+      );
     },
   );
   state.registerTool('validate_integration_flow', 'validate', integrationFlowHandle);

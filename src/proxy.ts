@@ -32,10 +32,7 @@ const proxiedServers: Map<string, ProxiedServer> = new Map();
  * Convert a JSON Schema property to a Zod type.
  * Handles the common types that MCP servers use.
  */
-function jsonSchemaPropertyToZod(
-  prop: Record<string, unknown>,
-  required: boolean,
-): z.ZodTypeAny {
+function jsonSchemaPropertyToZod(prop: Record<string, unknown>, required: boolean): z.ZodTypeAny {
   let zodType: z.ZodTypeAny;
 
   const type = prop.type as string | undefined;
@@ -51,14 +48,11 @@ function jsonSchemaPropertyToZod(
         break;
       case 'number':
       case 'integer':
-        zodType = z.preprocess(
-          (val) => typeof val === 'string' ? Number(val) : val,
-          z.number(),
-        );
+        zodType = z.preprocess((val) => (typeof val === 'string' ? Number(val) : val), z.number());
         break;
       case 'boolean':
         zodType = z.preprocess(
-          (val) => typeof val === 'string' ? val === 'true' : val,
+          (val) => (typeof val === 'string' ? val === 'true' : val),
           z.boolean(),
         );
         break;
@@ -67,14 +61,14 @@ function jsonSchemaPropertyToZod(
           ? jsonSchemaPropertyToZod(prop.items as Record<string, unknown>, true)
           : z.unknown();
         zodType = z.preprocess(
-          (val) => typeof val === 'string' ? JSON.parse(val) : val,
+          (val) => (typeof val === 'string' ? JSON.parse(val) : val),
           z.array(itemSchema),
         );
         break;
       }
       case 'object':
         zodType = z.preprocess(
-          (val) => typeof val === 'string' ? JSON.parse(val) : val,
+          (val) => (typeof val === 'string' ? JSON.parse(val) : val),
           z.record(z.any()),
         );
         break;
@@ -131,15 +125,13 @@ export async function proxyMcpServer(
   let remoteTools = (await client.listTools()).tools;
   if (remoteTools.length === 0) {
     for (const delay of [500, 1000, 2000]) {
-      await new Promise(r => setTimeout(r, delay));
+      await new Promise((r) => setTimeout(r, delay));
       remoteTools = (await client.listTools()).tools;
       if (remoteTools.length > 0) break;
     }
   }
 
-  const curatedSet = config.curatedTools
-    ? new Set(config.curatedTools)
-    : null;
+  const curatedSet = config.curatedTools ? new Set(config.curatedTools) : null;
 
   const toolNames: string[] = [];
 
@@ -161,7 +153,12 @@ export async function proxyMcpServer(
           name: toolName,
           arguments: args,
         });
-        if (loopStatus.loopSuspected && result && typeof result === 'object' && 'content' in result) {
+        if (
+          loopStatus.loopSuspected &&
+          result &&
+          typeof result === 'object' &&
+          'content' in result
+        ) {
           const content = (result as any).content;
           if (Array.isArray(content)) {
             content.push({ type: 'text', text: `\n\n${loopStatus.warning}` });
@@ -187,7 +184,9 @@ export async function proxyMcpServer(
     toolNames,
   });
 
-  const curated = curatedSet ? remoteTools.filter(t => curatedSet.has(t.name)).length : remoteTools.length;
+  const curated = curatedSet
+    ? remoteTools.filter((t) => curatedSet.has(t.name)).length
+    : remoteTools.length;
   return { total: remoteTools.length, curated };
 }
 

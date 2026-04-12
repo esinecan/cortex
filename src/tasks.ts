@@ -23,11 +23,9 @@ export function createTask(
   pathway: string | null = null,
 ): { task?: PersistentTask; error?: string } {
   if (!parentId) {
-    const active = listTasks().filter(t => !t.parent && t.status === 'active');
+    const active = listTasks().filter((t) => !t.parent && t.status === 'active');
     if (active.length >= MAX_ACTIVE_ROOT_TASKS) {
-      const listing = active
-        .map(t => `  - ${t.id}: ${t.title} (since ${t.created})`)
-        .join('\n');
+      const listing = active.map((t) => `  - ${t.id}: ${t.title} (since ${t.created})`).join('\n');
       return {
         error: `Max ${MAX_ACTIVE_ROOT_TASKS} active root tasks. Current:\n${listing}\n\nPause or complete one before creating a new task.`,
       };
@@ -183,8 +181,12 @@ export function getTaskContext(
 
       const paginated = task.findings.slice(start, end);
       const orderLabel = order === 'newest' ? 'newest first' : 'oldest first';
-      lines.push(`## Findings -- Page ${page}/${totalPages} (${paginated.length} of ${total}, ${orderLabel})`);
-      lines.push(`*\`task_context("${id}", page=${page === 1 ? 2 : page + 1}${order !== 'newest' ? ', order="oldest"' : ''}) for ${page === 1 ? 'more' : 'next page'}\`*`);
+      lines.push(
+        `## Findings -- Page ${page}/${totalPages} (${paginated.length} of ${total}, ${orderLabel})`,
+      );
+      lines.push(
+        `*\`task_context("${id}", page=${page === 1 ? 2 : page + 1}${order !== 'newest' ? ', order="oldest"' : ''}) for ${page === 1 ? 'more' : 'next page'}\`*`,
+      );
       lines.push('');
       for (const f of paginated) {
         lines.push(`- **[${f.state}] ${f.ts}**: ${f.content}`);
@@ -215,7 +217,7 @@ export function getGeneratedPathwayContext(gp: GeneratedPathway): string {
   const lines: string[] = [
     '## Generated Pathway',
     `**Goal:** ${gp.goal}`,
-    `**Progress:** ${gp.steps.filter(s => s.status === 'completed').length}/${gp.steps.length} steps`,
+    `**Progress:** ${gp.steps.filter((s) => s.status === 'completed').length}/${gp.steps.length} steps`,
     `**Enforcement:** ${gp.strict_enforcement ? 'strict' : 'soft'}`,
     '',
   ];
@@ -224,10 +226,14 @@ export function getGeneratedPathwayContext(gp: GeneratedPathway): string {
     const step = gp.steps[i];
     const isCurrent = i === gp.current_step_index && step.status === 'active';
     const marker = isCurrent ? '>> ' : '   ';
-    const statusIcon = step.status === 'completed' ? '[done]'
-      : step.status === 'active' ? '[active]'
-      : step.status === 'skipped' ? '[skipped]'
-      : '[pending]';
+    const statusIcon =
+      step.status === 'completed'
+        ? '[done]'
+        : step.status === 'active'
+          ? '[active]'
+          : step.status === 'skipped'
+            ? '[skipped]'
+            : '[pending]';
 
     lines.push(`${marker}**Step ${i}: ${step.label}** ${statusIcon} (${step.base_state})`);
     lines.push(`${marker}  ${step.description}`);
@@ -260,15 +266,13 @@ export function listAllTasks(): string {
   const tasks = listTasks();
   if (tasks.length === 0) return 'No persistent tasks.';
 
-  const roots = tasks.filter(t => !t.parent);
+  const roots = tasks.filter((t) => !t.parent);
   const lines: string[] = ['# Persistent Tasks', ''];
 
   for (const task of roots) {
     const findingCount = task.findings.length;
     const latestFinding = task.findings[task.findings.length - 1];
-    const latest = latestFinding
-      ? ` | Last: ${latestFinding.content.slice(0, 80)}`
-      : '';
+    const latest = latestFinding ? ` | Last: ${latestFinding.content.slice(0, 80)}` : '';
     lines.push(`- **[${task.status}]** ${task.id}: ${task.title}${latest}`);
 
     if (findingCount > 0) {

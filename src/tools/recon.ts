@@ -2,10 +2,7 @@ import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { StateManager } from '../state.js';
 import { updateTask } from '../tasks.js';
-
-function success(text: string) {
-  return { content: [{ type: 'text' as const, text }] };
-}
+import { respond, success } from '../respond.js';
 
 /**
  * Recon tools: structured investigation prompts and finding checkpoints.
@@ -15,9 +12,13 @@ export function registerReconTools(server: McpServer, state: StateManager): void
   const sweepHandle = server.registerTool(
     'recon_sweep',
     {
-      description: 'Start a reconnaissance sweep. Returns a structured prompt for what to investigate using code search, documentation, and git history.',
+      description:
+        'Returns a structured investigation plan for a ticket, repo, or topic. Does not execute anything directly — follow the checklist with your search/read tools.',
       inputSchema: {
-        ticket_id: z.string().optional().describe('Issue or ticket ID in your issue tracker (e.g. PROJ-123)'),
+        ticket_id: z
+          .string()
+          .optional()
+          .describe('Issue or ticket ID in your issue tracker (e.g. PROJ-123)'),
         repo: z.string().optional().describe('Repository name to focus on'),
         topic: z.string().optional().describe('Free-text topic to investigate'),
       },
@@ -27,7 +28,9 @@ export function registerReconTools(server: McpServer, state: StateManager): void
 
       if (args.ticket_id) {
         lines.push(`### 1. Ticket Context: ${args.ticket_id}`);
-        lines.push(`- Look up ${args.ticket_id} in your issue tracker (could be an external tool paired with cortex)`);
+        lines.push(
+          `- Look up ${args.ticket_id} in your issue tracker (could be an external tool paired with cortex)`,
+        );
         lines.push(`- Search documentation for ${args.ticket_id} acceptance criteria and context`);
         lines.push(`- Check git log for commits referencing ${args.ticket_id}`);
         lines.push('');
@@ -43,8 +46,12 @@ export function registerReconTools(server: McpServer, state: StateManager): void
 
       if (args.topic) {
         lines.push(`### Topic: ${args.topic}`);
-        lines.push(`- Search your documentation platform for "${args.topic}" (could be an external tool paired with cortex)`);
-        lines.push(`- Search your knowledge base or past session notes for "${args.topic}" (could be an external tool paired with cortex)`);
+        lines.push(
+          `- Search your documentation platform for "${args.topic}" (could be an external tool paired with cortex)`,
+        );
+        lines.push(
+          `- Search your knowledge base or past session notes for "${args.topic}" (could be an external tool paired with cortex)`,
+        );
         lines.push(`- Grep codebase for related patterns`);
         lines.push('');
       }
@@ -52,7 +59,11 @@ export function registerReconTools(server: McpServer, state: StateManager): void
       lines.push('### Final');
       lines.push('Save findings via `recon_checkpoint` before moving on.');
 
-      return success(lines.join('\n'));
+      return respond(
+        state,
+        lines.join('\n'),
+        'Execute the checklist above, then `recon_checkpoint` to save findings.',
+      );
     },
   );
   state.registerTool('recon_sweep', 'recon', sweepHandle);
@@ -60,7 +71,8 @@ export function registerReconTools(server: McpServer, state: StateManager): void
   const checkpointHandle = server.registerTool(
     'recon_checkpoint',
     {
-      description: 'Save a recon finding to the active task. Enforces: findings must be saved, not just observed.',
+      description:
+        'Save a recon finding to the active task. Enforces: findings must be saved, not just observed.',
       inputSchema: {
         summary: z.string().describe('What you found during reconnaissance'),
       },
@@ -73,9 +85,13 @@ export function registerReconTools(server: McpServer, state: StateManager): void
 
       const result = updateTask(taskId, { findings: args.summary }, 'recon');
       if (result.error) {
-        return success(`Checkpoint (task error: ${result.error}):\n\n${args.summary}`);
+        return respond(state, `Checkpoint (task error: ${result.error}):\n\n${args.summary}`);
       }
-      return success(`Checkpoint saved to task ${taskId}:\n\n${args.summary}`);
+      return respond(
+        state,
+        `Checkpoint saved to task ${taskId}:\n\n${args.summary}`,
+        'Continue investigating, or `enter_state("plan")` when you understand the problem.',
+      );
     },
   );
   state.registerTool('recon_checkpoint', 'recon', checkpointHandle);

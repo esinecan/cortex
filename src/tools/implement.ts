@@ -2,10 +2,7 @@ import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { StateManager } from '../state.js';
 import { updateTask } from '../tasks.js';
-
-function success(text: string) {
-  return { content: [{ type: 'text' as const, text }] };
-}
+import { respond } from '../respond.js';
 
 /**
  * Implement tools: progress checkpoints, test recording, and blocker signaling.
@@ -18,10 +15,12 @@ export function registerImplementTools(server: McpServer, state: StateManager): 
       description: 'Record implementation progress. Persists to the active task with file list.',
       inputSchema: {
         description: z.string().describe('What was done in this checkpoint'),
-        files_changed: z.preprocess(
-          (val) => typeof val === 'string' ? JSON.parse(val) : val,
-          z.array(z.string()).optional(),
-        ).describe('Files modified in this checkpoint'),
+        files_changed: z
+          .preprocess(
+            (val) => (typeof val === 'string' ? JSON.parse(val) : val),
+            z.array(z.string()).optional(),
+          )
+          .describe('Files modified in this checkpoint'),
       },
     },
     async (args) => {
@@ -34,7 +33,11 @@ export function registerImplementTools(server: McpServer, state: StateManager): 
         updateTask(taskId, { findings: finding }, 'implement');
       }
 
-      return success(`Checkpoint saved.${fileList}\n\n${args.description}`);
+      return respond(
+        state,
+        `Checkpoint saved.${fileList}\n\n${args.description}`,
+        'Continue implementing, `impl_test` to verify, or `impl_stuck` if blocked.',
+      );
     },
   );
   state.registerTool('impl_checkpoint', 'implement', checkpointHandle);
@@ -44,7 +47,10 @@ export function registerImplementTools(server: McpServer, state: StateManager): 
     {
       description: 'Run tests and record results to the active task.',
       inputSchema: {
-        command: z.string().optional().describe('Test command to run (guidance only -- execute via run_command or Bash)'),
+        command: z
+          .string()
+          .optional()
+          .describe('Test command to run (guidance only -- execute via run_command or Bash)'),
         result: z.enum(['pass', 'fail', 'partial']).optional().describe('Test result to record'),
         details: z.string().optional().describe('Test output summary'),
       },
@@ -70,10 +76,13 @@ export function registerImplementTools(server: McpServer, state: StateManager): 
           );
         }
       } else {
-        lines.push('', 'Execute the test, then call `impl_test` again with `result` and `details`.');
+        lines.push(
+          '',
+          'Execute the test, then call `impl_test` again with `result` and `details`.',
+        );
       }
 
-      return success(lines.join('\n'));
+      return respond(state, lines.join('\n'));
     },
   );
   state.registerTool('impl_test', 'implement', testHandle);
@@ -81,7 +90,8 @@ export function registerImplementTools(server: McpServer, state: StateManager): 
   const stuckHandle = server.registerTool(
     'impl_stuck',
     {
-      description: 'Signal that you are blocked. Suggests reasoning tools or state switch to debug.',
+      description:
+        'Signal that you are blocked. Suggests reasoning tools or state switch to debug.',
       inputSchema: {
         description: z.string().describe('What is blocking progress?'),
       },
@@ -92,15 +102,18 @@ export function registerImplementTools(server: McpServer, state: StateManager): 
         updateTask(taskId, { findings: `[blocked] ${args.description}` }, 'implement');
       }
 
-      return success([
-        `## Blocked: ${args.description}`,
-        '',
-        '### Options',
-        '1. **Reason through it**: Use your reasoning tool (e.g. extended thinking or a dedicated reasoning MCP) to work through the blocker',
-        '2. **Debug state**: `enter_state("debug")` for progressive investigation',
-        '3. **Free explore**: `free_explore` if the problem doesn\'t fit a state',
-        '4. **Ask the user**: If you need human judgment or context',
-      ].join('\n'));
+      return respond(
+        state,
+        [
+          `## Blocked: ${args.description}`,
+          '',
+          '### Options',
+          '1. **Reason through it**: Use your reasoning tool (e.g. extended thinking or a dedicated reasoning MCP) to work through the blocker',
+          '2. **Debug state**: `enter_state("debug")` for progressive investigation',
+          "3. **Free explore**: `free_explore` if the problem doesn't fit a state",
+          '4. **Ask the user**: If you need human judgment or context',
+        ].join('\n'),
+      );
     },
   );
   state.registerTool('impl_stuck', 'implement', stuckHandle);

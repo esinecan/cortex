@@ -43,9 +43,7 @@ interface RawConfig {
 }
 
 function substituteVars(value: string, projectRoot: string): string {
-  return value
-    .replace(/\$HOME/g, homedir())
-    .replace(/\$PROJECT_ROOT/g, projectRoot);
+  return value.replace(/\$HOME/g, homedir()).replace(/\$PROJECT_ROOT/g, projectRoot);
 }
 
 /**
@@ -62,8 +60,7 @@ export function getClaudeEnv(serverName: string): Record<string, string> {
     try {
       if (!existsSync(configPath)) continue;
       const config = JSON.parse(readFileSync(configPath, 'utf-8'));
-      const env = config?.mcpServers?.[serverName]?.env
-        || config?.servers?.[serverName]?.env;
+      const env = config?.mcpServers?.[serverName]?.env || config?.servers?.[serverName]?.env;
       if (env && Object.keys(env).length > 0) return env;
     } catch {
       // continue to next candidate
@@ -83,7 +80,7 @@ export function loadMcpServers(projectRoot: string): McpServerEntry[] {
 
   if (raw.external) {
     for (const [name, cfg] of Object.entries(raw.external)) {
-      const resolvedArgs = cfg.args.map(a => substituteVars(String(a), projectRoot));
+      const resolvedArgs = cfg.args.map((a) => substituteVars(String(a), projectRoot));
       const env = resolveEnv(cfg.env, cfg.env_from_claude);
 
       configs.push({

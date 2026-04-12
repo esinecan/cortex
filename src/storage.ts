@@ -3,7 +3,15 @@
  * Default location is ~/.cortex/, overridable via CORTEX_TASKS_DIR.
  * @module
  */
-import { readFileSync, writeFileSync, readdirSync, existsSync, mkdirSync, appendFileSync, unlinkSync } from 'node:fs';
+import {
+  readFileSync,
+  writeFileSync,
+  readdirSync,
+  existsSync,
+  mkdirSync,
+  appendFileSync,
+  unlinkSync,
+} from 'node:fs';
 import { join } from 'node:path';
 import { homedir } from 'node:os';
 import type { PersistentTask, CortexState, FreeExploreEntry } from './types.js';
@@ -61,7 +69,7 @@ export function saveTask(task: PersistentTask): void {
 /** List all tasks by scanning for task-*.json files in the tasks directory. */
 export function listTasks(): PersistentTask[] {
   ensureDir();
-  const files = readdirSync(TASKS_DIR).filter(f => f.startsWith('task-') && f.endsWith('.json'));
+  const files = readdirSync(TASKS_DIR).filter((f) => f.startsWith('task-') && f.endsWith('.json'));
   const tasks: PersistentTask[] = [];
   for (const f of files) {
     try {
@@ -116,5 +124,5 @@ export function loadFreeExploreLog(): FreeExploreEntry[] {
   if (!existsSync(logFile)) return [];
   const content = readFileSync(logFile, 'utf-8').trim();
   if (!content) return [];
-  return content.split('\n').map(line => JSON.parse(line));
+  return content.split('\n').map((line) => JSON.parse(line));
 }

@@ -74,8 +74,14 @@ async function main(): Promise<void> {
     process.stderr.write('[cortex] New session started in base state.\n');
   }
 
-  process.on('SIGINT', async () => { await disconnectAll(); process.exit(0); });
-  process.on('SIGTERM', async () => { await disconnectAll(); process.exit(0); });
+  process.on('SIGINT', async () => {
+    await disconnectAll();
+    process.exit(0);
+  });
+  process.on('SIGTERM', async () => {
+    await disconnectAll();
+    process.exit(0);
+  });
 }
 
 async function proxyExternalServers(server: McpServer, state: StateManager): Promise<void> {

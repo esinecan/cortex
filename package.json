@@ -1,14 +1,34 @@
 {
   "name": "cortex",
   "version": "0.1.0",
-  "description": "Executive function layer — persistent tasks, state-based workflow, progressive capability. Pluggable MCP server proxying.",
+  "description": "Executive function layer for AI agents — persistent tasks, state-based workflow, progressive capability. Like a choose-your-own-adventure book for LLMs.",
   "type": "module",
   "main": "dist/index.js",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/esinecan/cortex.git"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "ai-agent",
+    "workflow",
+    "state-machine",
+    "llm",
+    "developer-tools"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",
     "start": "node dist/index.js",
     "inspect": "npx @modelcontextprotocol/inspector node dist/index.js",
+    "lint": "eslint src/",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
     "test": "vitest run",
     "test:watch": "vitest"
   },
@@ -18,8 +38,13 @@
     "zod": "^3.24.4"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/eslint__js": "^8.42.3",
     "@types/node": "^22.15.3",
+    "eslint": "^10.2.0",
+    "prettier": "^3.8.2",
     "typescript": "^5.8.3",
+    "typescript-eslint": "^8.58.1",
     "vitest": "^4.1.2"
   }
 }

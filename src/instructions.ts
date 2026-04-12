@@ -1,58 +1,49 @@
 export const CORTEX_INSTRUCTIONS = `
 # Cortex -- Executive Function Layer
 
-Cortex manages your workflow state and persistent tasks across sessions.
-It ships with default proxy servers (Playwright, Brave Search, GitHub, Commands)
-and is designed so you can add or swap MCP servers via mcp-servers.yaml.
+## Start Here
+1. \`task_list\` -- check for active tasks from previous sessions
+2. If resuming: \`task_context(id)\` to pick up where you left off
+3. If new work: \`task_create(title, pathway="golden")\` to start
 
-## Always-On Tools
-- \`task_create\`, \`task_update\`, \`task_list\`, \`task_get\`, \`task_context\` -- persistent cross-session tasks
-- \`current_state\`, \`enter_state\`, \`exit_state\` -- workflow state management
-- \`free_explore\`, \`exit_free\` -- open-ended mode, or escape hatch from a structured state
-- \`suggest_state\` -- recommend a state based on your intent
+Tasks survive across sessions. Always check \`task_list\` first.
 
-## States
-Each state makes relevant tools visible and hides irrelevant ones.
+## How It Works
+Cortex is a state machine. You are always in one **state** (chapter).
+Each state shows you different tools and constraints. Transition with \`enter_state\`.
 
-| State | Purpose |
-|-------|---------|
-| base | Default. Task management and state selection. |
-| recon | Read-only exploration -- understand before acting. |
-| plan | Structured planning -- draft, validate, approve. |
-| implement | Active coding -- write, test, checkpoint. |
-| debug | Debugging -- hypotheses, logs, DB queries, distributed tracing. |
-| validate | Verification (L1->L2->L3). Local checks, flow verification, browser E2E. |
-| review | Self-review and PR prep. |
-| browse | Focus state. Browser only. |
-| free | Escape hatch. All tools. |
+| State | You are... | Key tools |
+|-------|-----------|-----------|
+| base | Choosing what to do | \`suggest_state\`, \`task_create\` |
+| recon | Understanding the problem | \`recon_sweep\`, \`recon_checkpoint\` |
+| plan | Designing the approach | \`plan_draft\`, \`plan_validate\`, \`plan_approve\` |
+| implement | Writing code | \`impl_checkpoint\`, \`impl_test\`, \`impl_stuck\` |
+| debug | Investigating a bug | \`debug_hypothesis\`, \`debug_root_cause\` |
+| validate | Verifying it works (L1->L2->L3) | \`validate_prerequisites\`, \`validate_advance\` |
+| review | Preparing for PR | \`review_diff_summary\`, \`review_simulate\` |
+| browse | Focused web research | \`browse_capture\` + Playwright tools |
+| free | Escape hatch -- all tools | \`cortex_discover\` to find anything |
 
 ## Pathways
-Guided workflows -- named sequences of states with step-by-step guidance.
+Named storylines that guide you through states:
 
-| Pathway | Flow | When to use |
-|---------|------|-------------|
-| golden | recon -> plan -> implement -> validate -> review | Feature development, tickets |
-| investigation | debug -> implement -> validate -> review | Bugs, errors |
-| knowledge | recon -> exit | Quick domain questions |
-| e2e_verify | validate | Standalone E2E verification |
-| code_review | recon -> review | Reviewing someone else's PR |
-| free_roam | free | Open-ended questions, meta-tasks |
-| introspect | recon -> plan -> implement -> validate | Self-audit cortex internals |
+| Pathway | Flow | Use for |
+|---------|------|---------|
+| golden | recon -> plan -> implement -> validate -> review | Features |
+| investigation | debug -> implement -> validate -> review | Bugs |
+| knowledge | recon | Quick questions |
+| e2e_verify | validate (L1->L2->L3) | E2E testing |
+| code_review | recon -> review | Reviewing PRs |
+| free_roam | free | Open-ended work |
 
-Create a task with a pathway: \`task_create(title, pathway="golden")\`
+## Always Available
+These tools work in every state:
+- \`task_create\`, \`task_update\`, \`task_list\`, \`task_context\` -- persistent tasks
+- \`enter_state\`, \`exit_state\`, \`current_state\` -- navigation
+- \`free_explore\` / \`exit_free\` -- escape hatch
+- \`suggest_state\` -- not sure where to go? Describe your intent
 
 ## Pluggability
-Cortex proxies external MCP servers defined in mcp-servers.yaml. Each server declares
-a \`discovery_state\` that determines when its tools become visible. To add your own
-server (observability, database, CI, etc.), add an entry to mcp-servers.yaml and its
-tools will automatically appear in the appropriate state.
-
-## Session Start
-1. \`task_list\` -- check what is active from previous sessions
-2. \`task_context(id)\` -- reconstruct context for an existing task
-3. \`task_create(title, pathway="...")\` -- or start a new task
-
-## Important
-- Tasks survive across sessions. Always check \`task_list\` at session start.
-- \`task_context\` is how you pick up where the last session left off. Paginated (50 findings/page).
+Cortex proxies external MCP servers (Playwright, Brave Search, GitHub, etc.).
+Add your own via mcp-servers.yaml -- tools appear automatically in the right state.
 `.trim();

@@ -2,10 +2,7 @@ import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { StateManager } from '../state.js';
 import { updateTask } from '../tasks.js';
-
-function success(text: string) {
-  return { content: [{ type: 'text' as const, text }] };
-}
+import { respond } from '../respond.js';
 
 /**
  * Browse tools: journaling companion for the proxied Playwright server.
@@ -15,7 +12,8 @@ export function registerBrowseTools(server: McpServer, state: StateManager): voi
   const captureHandle = server.registerTool(
     'browse_capture',
     {
-      description: 'Record a web research finding. Maintains a breadcrumb trail of what was browsed and why.',
+      description:
+        'Record a web research finding. Maintains a breadcrumb trail of what was browsed and why.',
       inputSchema: {
         url: z.string().describe('URL that was visited'),
         purpose: z.string().describe('Why this page was visited'),
@@ -30,7 +28,11 @@ export function registerBrowseTools(server: McpServer, state: StateManager): voi
         updateTask(taskId, { findings: finding }, 'browse');
       }
 
-      return success(`Browse captured: ${args.url}\n\n**Purpose:** ${args.purpose}${args.finding ? `\n**Finding:** ${args.finding}` : ''}`);
+      return respond(
+        state,
+        `Browse captured: ${args.url}\n\n**Purpose:** ${args.purpose}${args.finding ? `\n**Finding:** ${args.finding}` : ''}`,
+        'Continue browsing, or `exit_state` when research is complete.',
+      );
     },
   );
   state.registerTool('browse_capture', 'browse', captureHandle);

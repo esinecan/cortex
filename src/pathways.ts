@@ -66,11 +66,7 @@ export function getNextState(pathwayName: string, currentState: string): string 
 /**
  * Format pathway guidance as markdown for inclusion in tool responses.
  */
-export function formatGuidance(
-  pathwayName: string,
-  stateName: string,
-  level?: number,
-): string {
+export function formatGuidance(pathwayName: string, stateName: string, level?: number): string {
   const pathway = pathwayDefinitions[pathwayName];
   if (!pathway) return '';
 
@@ -92,7 +88,10 @@ export function formatGuidance(
   if (next) {
     lines.push('', `**Next state in pathway:** \`enter_state("${next}")\``);
   } else if (pathway.loop) {
-    lines.push('', '**Stay in this state as long as needed.** When done, `task_update(status=\'completed\')` and `exit_state`.');
+    lines.push(
+      '',
+      "**Stay in this state as long as needed.** When done, `task_update(status='completed')` and `exit_state`.",
+    );
   } else {
     lines.push('', '**This is the final state in the pathway.**');
   }

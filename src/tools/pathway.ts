@@ -5,56 +5,73 @@ import type { GeneratedPathwayStep, PathwayProof } from '../types.js';
 import { getTask, updateTask } from '../tasks.js';
 import { saveTask, loadTask } from '../storage.js';
 import { resolveState, getStateNames } from '../states.js';
-
-function success(text: string) {
-  return { content: [{ type: 'text' as const, text }] };
-}
-
-function error(text: string) {
-  return { content: [{ type: 'text' as const, text }], isError: true };
-}
+import { success, error } from '../respond.js';
 
 /**
  * Pathway tools: generate, advance, prove, and status for runtime-generated pathways.
  * All registered as always-on since pathway management spans states.
  */
 export function registerPathwayTools(server: McpServer, state: StateManager): void {
-
   const generateHandle = server.registerTool(
     'pathway_generate',
     {
-      description: 'Generate a runtime pathway for a task. Decompose into steps, each pinned to a cortex state with acceptance criteria that gate advancement. Use cortex_discover to check which tools belong to which state before composing steps.',
+      description:
+        'Generate a runtime pathway for a task. Decompose into steps, each pinned to a cortex state with acceptance criteria that gate advancement. Use cortex_discover to check which tools belong to which state before composing steps.',
       inputSchema: {
         task_id: z.string().describe('Task to attach the pathway to'),
         goal: z.string().describe('What the pathway aims to accomplish'),
-        steps: z.preprocess(
-          (val) => typeof val === 'string' ? JSON.parse(val) : val,
-          z.array(z.object({
-            label: z.string().describe('Human-readable step name'),
-            base_state: z.string().describe('Cortex state for this step (recon, implement, debug, etc.)'),
-            description: z.string().describe('What to do in this step'),
-            acceptance_criteria: z.array(z.string()).describe('Checklist items that must be met'),
-            tools: z.array(z.string()).default([]).describe('Cortex tools to enable (subset of base_state tools). Empty = use full state defaults.'),
-            external_guidance: z.object({
-              use: z.array(z.string()).default([]),
-              avoid: z.array(z.string()).default([]),
-            }).default({ use: [], avoid: [] }).describe('External tool guidance'),
-            constraints: z.array(z.string()).default([]).describe('Constraints for this step'),
-          })),
-        ).describe('Ordered steps as JSON array'),
+        steps: z
+          .preprocess(
+            (val) => (typeof val === 'string' ? JSON.parse(val) : val),
+            z.array(
+              z.object({
+                label: z.string().describe('Human-readable step name'),
+                base_state: z
+                  .string()
+                  .describe('Cortex state for this step (recon, implement, debug, etc.)'),
+                description: z.string().describe('What to do in this step'),
+                acceptance_criteria: z
+                  .array(z.string())
+                  .describe('Checklist items that must be met'),
+                tools: z
+                  .array(z.string())
+                  .default([])
+                  .describe(
+                    'Cortex tools to enable (subset of base_state tools). Empty = use full state defaults.',
+                  ),
+                external_guidance: z
+                  .object({
+                    use: z.array(z.string()).default([]),
+                    avoid: z.array(z.string()).default([]),
+                  })
+                  .default({ use: [], avoid: [] })
+                  .describe('External tool guidance'),
+                constraints: z.array(z.string()).default([]).describe('Constraints for this step'),
+              }),
+            ),
+          )
+          .describe('Ordered steps as JSON array'),
         strict: z.boolean().default(true).describe('Hard gate on advancement (default true)'),
       },
     },
     async (args) => {
       const task = getTask(args.task_id);
       if (!task) return error(`Task ${args.task_id} not found.`);
-      if (task.status !== 'active') return error(`Task ${args.task_id} is ${task.status}, not active.`);
-      if (task.generated_pathway) return error('Task already has a generated pathway. Complete or reset it first.');
-      if (task.pathway) return error(`Task has static pathway "${task.pathway}". Clear it before generating a dynamic one.`);
+      if (task.status !== 'active')
+        return error(`Task ${args.task_id} is ${task.status}, not active.`);
+      if (task.generated_pathway)
+        return error('Task already has a generated pathway. Complete or reset it first.');
+      if (task.pathway)
+        return error(
+          `Task has static pathway "${task.pathway}". Clear it before generating a dynamic one.`,
+        );
 
       const steps = args.steps as Array<{
-        label: string; base_state: string; description: string;
-        acceptance_criteria: string[]; tools: string[];
+        label: string;
+        base_state: string;
+        description: string;
+        acceptance_criteria: string[];
+        tools: string[];
         external_guidance: { use: string[]; avoid: string[] };
         constraints: string[];
       }>;
@@ -68,7 +85,9 @@ export function registerPathwayTools(server: McpServer, state: StateManager): vo
         const s = steps[i];
 
         if (!validStates.has(s.base_state)) {
-          return error(`Step ${i} ("${s.label}"): unknown base_state "${s.base_state}". Valid: ${[...validStates].join(', ')}`);
+          return error(
+            `Step ${i} ("${s.label}"): unknown base_state "${s.base_state}". Valid: ${[...validStates].join(', ')}`,
+          );
         }
 
         if (s.acceptance_criteria.length === 0) {
@@ -79,9 +98,11 @@ export function registerPathwayTools(server: McpServer, state: StateManager): vo
           const resolved = resolveState(s.base_state);
           if (resolved) {
             const stateTools = new Set(resolved.tools);
-            const invalid = s.tools.filter(t => !stateTools.has(t));
+            const invalid = s.tools.filter((t) => !stateTools.has(t));
             if (invalid.length > 0) {
-              return error(`Step ${i} ("${s.label}"): tools not in ${s.base_state} state: ${invalid.join(', ')}`);
+              return error(
+                `Step ${i} ("${s.label}"): tools not in ${s.base_state} state: ${invalid.join(', ')}`,
+              );
             }
           }
         }
@@ -111,9 +132,13 @@ export function registerPathwayTools(server: McpServer, state: StateManager): vo
 
       saveTask(task);
 
-      updateTask(args.task_id, {
-        findings: `[pathway:generated] ${args.goal} (${validatedSteps.length} steps, ${args.strict ? 'strict' : 'soft'} enforcement)`,
-      }, state.getCurrentState());
+      updateTask(
+        args.task_id,
+        {
+          findings: `[pathway:generated] ${args.goal} (${validatedSteps.length} steps, ${args.strict ? 'strict' : 'soft'} enforcement)`,
+        },
+        state.getCurrentState(),
+      );
 
       const lines = [
         `## Pathway Generated`,
@@ -125,11 +150,16 @@ export function registerPathwayTools(server: McpServer, state: StateManager): vo
       for (let i = 0; i < validatedSteps.length; i++) {
         const s = validatedSteps[i];
         const marker = i === 0 ? '>> ' : '   ';
-        lines.push(`${marker}${i}. **${s.label}** (${s.base_state}) - ${s.acceptance_criteria.length} criteria`);
+        lines.push(
+          `${marker}${i}. **${s.label}** (${s.base_state}) - ${s.acceptance_criteria.length} criteria`,
+        );
       }
 
       const first = validatedSteps[0];
-      lines.push('', `**Start:** \`enter_state("${first.base_state}", task_id="${args.task_id}")\``);
+      lines.push(
+        '',
+        `**Start:** \`enter_state("${first.base_state}", task_id="${args.task_id}")\``,
+      );
 
       return success(lines.join('\n'));
     },
@@ -139,10 +169,14 @@ export function registerPathwayTools(server: McpServer, state: StateManager): vo
   const advanceHandle = server.registerTool(
     'pathway_advance',
     {
-      description: 'Advance to the next step in the generated pathway. Hard-gated: all acceptance criteria must be met unless force=true.',
+      description:
+        'Advance to the next step in the generated pathway. Hard-gated: all acceptance criteria must be met unless force=true.',
       inputSchema: {
         force: z.boolean().default(false).describe('Bypass criteria gate (requires reason)'),
-        reason: z.string().optional().describe('Why you are forcing advancement (required if force=true)'),
+        reason: z
+          .string()
+          .optional()
+          .describe('Why you are forcing advancement (required if force=true)'),
       },
     },
     async (args) => {
@@ -160,23 +194,27 @@ export function registerPathwayTools(server: McpServer, state: StateManager): vo
 
       const unmetIndices = currentStep.acceptance_criteria
         .map((_, i) => i)
-        .filter(i => !currentStep.criteria_met.includes(i));
+        .filter((i) => !currentStep.criteria_met.includes(i));
 
       if (unmetIndices.length > 0 && gp.strict_enforcement && !args.force) {
         const unmetList = unmetIndices
-          .map(i => `  ${i}. ${currentStep.acceptance_criteria[i]}`)
+          .map((i) => `  ${i}. ${currentStep.acceptance_criteria[i]}`)
           .join('\n');
         return error(
           `Cannot advance. ${unmetIndices.length} unmet criteria:\n${unmetList}\n\n` +
-          'Use `pathway_advance(force=true, reason="...")` to bypass, or `pathway_prove` to satisfy criteria.'
+            'Use `pathway_advance(force=true, reason="...")` to bypass, or `pathway_prove` to satisfy criteria.',
         );
       }
 
       if (args.force && unmetIndices.length > 0) {
         if (!args.reason) return error('force=true requires a reason.');
-        updateTask(taskId, {
-          findings: `[pathway:forced-advance] Skipped ${unmetIndices.length} criteria on "${currentStep.label}". Reason: ${args.reason}`,
-        }, state.getCurrentState());
+        updateTask(
+          taskId,
+          {
+            findings: `[pathway:forced-advance] Skipped ${unmetIndices.length} criteria on "${currentStep.label}". Reason: ${args.reason}`,
+          },
+          state.getCurrentState(),
+        );
       }
 
       currentStep.status = 'completed';
@@ -187,11 +225,17 @@ export function registerPathwayTools(server: McpServer, state: StateManager): vo
         gp.current_step_index = nextIndex;
         saveTask(task);
 
-        updateTask(taskId, {
-          findings: `[pathway:complete] All ${gp.steps.length} steps done.`,
-        }, state.getCurrentState());
+        updateTask(
+          taskId,
+          {
+            findings: `[pathway:complete] All ${gp.steps.length} steps done.`,
+          },
+          state.getCurrentState(),
+        );
 
-        return success('## Pathway Complete\n\nAll steps finished. Use `task_update(status="completed")` to close the task.');
+        return success(
+          '## Pathway Complete\n\nAll steps finished. Use `task_update(status="completed")` to close the task.',
+        );
       }
 
       gp.current_step_index = nextIndex;
@@ -213,7 +257,7 @@ export function registerPathwayTools(server: McpServer, state: StateManager): vo
       }
       if (nextStep.tools.length > 0) {
         lines.push('', '### Declared Tools');
-        lines.push(nextStep.tools.map(t => `- \`${t}\``).join('\n'));
+        lines.push(nextStep.tools.map((t) => `- \`${t}\``).join('\n'));
       }
       if (nextStep.constraints.length > 0) {
         lines.push('', '### Constraints');
@@ -228,13 +272,23 @@ export function registerPathwayTools(server: McpServer, state: StateManager): vo
   const proveHandle = server.registerTool(
     'pathway_prove',
     {
-      description: 'Submit evidence for the current step. Mark acceptance criteria as met and attach proof.',
+      description:
+        'Submit evidence for the current step. Mark acceptance criteria as met and attach proof.',
       inputSchema: {
-        criteria_indices: z.preprocess(
-          (val) => typeof val === 'string' ? JSON.parse(val) : val,
-          z.array(z.number().int().min(0)),
-        ).describe('Which acceptance criteria are now met (indices)'),
-        proof_type: z.enum(['test_output', 'screenshot', 'log_evidence', 'manual_verification', 'audit_result'])
+        criteria_indices: z
+          .preprocess(
+            (val) => (typeof val === 'string' ? JSON.parse(val) : val),
+            z.array(z.number().int().min(0)),
+          )
+          .describe('Which acceptance criteria are now met (indices)'),
+        proof_type: z
+          .enum([
+            'test_output',
+            'screenshot',
+            'log_evidence',
+            'manual_verification',
+            'audit_result',
+          ])
           .describe('Type of evidence'),
         description: z.string().describe('Evidence text'),
       },
@@ -252,9 +306,11 @@ export function registerPathwayTools(server: McpServer, state: StateManager): vo
 
       const indices = args.criteria_indices as number[];
 
-      const outOfBounds = indices.filter(i => i < 0 || i >= step.acceptance_criteria.length);
+      const outOfBounds = indices.filter((i) => i < 0 || i >= step.acceptance_criteria.length);
       if (outOfBounds.length > 0) {
-        return error(`Invalid criteria indices: ${outOfBounds.join(', ')}. Valid range: 0-${step.acceptance_criteria.length - 1}`);
+        return error(
+          `Invalid criteria indices: ${outOfBounds.join(', ')}. Valid range: 0-${step.acceptance_criteria.length - 1}`,
+        );
       }
 
       const metSet = new Set(step.criteria_met);
@@ -274,7 +330,7 @@ export function registerPathwayTools(server: McpServer, state: StateManager): vo
       const lines = [
         `## Proof Recorded`,
         `**Type:** ${args.proof_type}`,
-        `**Criteria satisfied:** ${indices.map(i => `${i} ("${step.acceptance_criteria[i]}")`).join(', ')}`,
+        `**Criteria satisfied:** ${indices.map((i) => `${i} ("${step.acceptance_criteria[i]}")`).join(', ')}`,
         '',
       ];
 
@@ -308,7 +364,7 @@ export function registerPathwayTools(server: McpServer, state: StateManager): vo
       if (!task?.generated_pathway) return error('Active task has no generated pathway.');
 
       const gp = task.generated_pathway;
-      const completed = gp.steps.filter(s => s.status === 'completed').length;
+      const completed = gp.steps.filter((s) => s.status === 'completed').length;
       const pct = Math.round((completed / gp.steps.length) * 100);
 
       const lines = [
@@ -322,10 +378,14 @@ export function registerPathwayTools(server: McpServer, state: StateManager): vo
         const step = gp.steps[i];
         const isCurrent = i === gp.current_step_index && step.status === 'active';
         const marker = isCurrent ? '>> ' : '   ';
-        const statusLabel = step.status === 'completed' ? 'DONE'
-          : step.status === 'active' ? 'ACTIVE'
-          : step.status === 'skipped' ? 'SKIPPED'
-          : 'PENDING';
+        const statusLabel =
+          step.status === 'completed'
+            ? 'DONE'
+            : step.status === 'active'
+              ? 'ACTIVE'
+              : step.status === 'skipped'
+                ? 'SKIPPED'
+                : 'PENDING';
 
         lines.push(`${marker}**Step ${i}: ${step.label}** [${statusLabel}] (${step.base_state})`);
 

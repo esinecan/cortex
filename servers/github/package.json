@@ -1,0 +1,41 @@
+{
+  "name": "gh-mcp",
+  "version": "0.1.0",
+  "description": "MCP server wrapping gh CLI for read-only GitHub operations",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "gh-mcp": "dist/mcp/server.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "start": "node dist/mcp/server.js",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "lint": "eslint src --ext .ts",
+    "typecheck": "tsc --noEmit",
+    "inspector": "npx @modelcontextprotocol/inspector node dist/mcp/server.js"
+  },
+  "keywords": [
+    "mcp",
+    "github",
+    "gh",
+    "cli"
+  ],
+  "author": "esinecan",
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.4"
+  },
+  "devDependencies": {
+    "@types/jest": "^29.5.14",
+    "@types/node": "^22.10.2",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.2.5",
+    "typescript": "^5.7.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

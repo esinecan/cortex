@@ -65,7 +65,10 @@ export function resolveState(name: string, level?: number): ResolvedState | null
       resolvedGuidance = { ...levelDef.external_guidance };
     }
     if (levelDef.additional_external_guidance?.use) {
-      resolvedGuidance.use = [...resolvedGuidance.use, ...levelDef.additional_external_guidance.use];
+      resolvedGuidance.use = [
+        ...resolvedGuidance.use,
+        ...levelDef.additional_external_guidance.use,
+      ];
     }
 
     if (levelDef.constraints) {
@@ -96,13 +99,13 @@ export function formatStateInfo(state: ResolvedState): string {
 
   if (state.tools.length > 0) {
     lines.push('## Available Tools');
-    lines.push(state.tools.map(t => `- \`${t}\``).join('\n'));
+    lines.push(state.tools.map((t) => `- \`${t}\``).join('\n'));
     lines.push('');
   }
 
   if (state.skill_suggestions.length > 0) {
     lines.push('## Suggested Skills');
-    lines.push(state.skill_suggestions.map(s => `- \`/${s}\``).join('\n'));
+    lines.push(state.skill_suggestions.map((s) => `- \`/${s}\``).join('\n'));
     lines.push('');
   }
 

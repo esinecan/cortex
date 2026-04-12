@@ -2,10 +2,7 @@ import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { StateManager } from '../state.js';
 import { updateTask } from '../tasks.js';
-
-function success(text: string) {
-  return { content: [{ type: 'text' as const, text }] };
-}
+import { respond } from '../respond.js';
 
 /**
  * Plan tools: draft, validate, and approve implementation plans.
@@ -18,13 +15,17 @@ export function registerPlanTools(server: McpServer, state: StateManager): void 
       description: 'Create a structured implementation plan. Persists to the active task.',
       inputSchema: {
         goal: z.string().describe('What the plan aims to achieve'),
-        sections: z.preprocess(
-          (val) => typeof val === 'string' ? JSON.parse(val) : val,
-          z.array(z.object({
-            title: z.string(),
-            content: z.string(),
-          })),
-        ).describe('Plan sections as [{title, content}]'),
+        sections: z
+          .preprocess(
+            (val) => (typeof val === 'string' ? JSON.parse(val) : val),
+            z.array(
+              z.object({
+                title: z.string(),
+                content: z.string(),
+              }),
+            ),
+          )
+          .describe('Plan sections as [{title, content}]'),
       },
     },
     async (args) => {
@@ -41,7 +42,11 @@ export function registerPlanTools(server: McpServer, state: StateManager): void 
         updateTask(taskId, { findings: `[plan] ${args.goal}\n${planText}` }, 'plan');
       }
 
-      return success(planText + '\n\nUse `plan_validate` to check against actual code, then `plan_approve` to proceed.');
+      return respond(
+        state,
+        planText,
+        '`plan_validate` to check against actual code, then `plan_approve` to proceed.',
+      );
     },
   );
   state.registerTool('plan_draft', 'plan', draftHandle);
@@ -49,16 +54,21 @@ export function registerPlanTools(server: McpServer, state: StateManager): void 
   const validateHandle = server.registerTool(
     'plan_validate',
     {
-      description: 'Validate the current plan against actual code. Checks that referenced files, functions, and patterns exist.',
+      description:
+        'Validate the current plan against actual code. Checks that referenced files, functions, and patterns exist.',
       inputSchema: {
-        files: z.preprocess(
-          (val) => typeof val === 'string' ? JSON.parse(val) : val,
-          z.array(z.string()),
-        ).describe('File paths referenced in the plan to verify'),
-        functions: z.preprocess(
-          (val) => typeof val === 'string' ? JSON.parse(val) : val,
-          z.array(z.string()).optional(),
-        ).describe('Function/class names referenced in the plan to verify'),
+        files: z
+          .preprocess(
+            (val) => (typeof val === 'string' ? JSON.parse(val) : val),
+            z.array(z.string()),
+          )
+          .describe('File paths referenced in the plan to verify'),
+        functions: z
+          .preprocess(
+            (val) => (typeof val === 'string' ? JSON.parse(val) : val),
+            z.array(z.string()).optional(),
+          )
+          .describe('Function/class names referenced in the plan to verify'),
       },
     },
     async (args) => {
@@ -79,7 +89,7 @@ export function registerPlanTools(server: McpServer, state: StateManager): void 
       lines.push('', 'Use Read/Grep to verify each item. Then call `plan_approve` if valid.');
       lines.push('', 'Consider an adversarial review of the plan before approval.');
 
-      return success(lines.join('\n'));
+      return respond(state, lines.join('\n'), '`plan_approve` when all items verified.');
     },
   );
   state.registerTool('plan_validate', 'plan', validateHandle);
@@ -92,10 +102,18 @@ export function registerPlanTools(server: McpServer, state: StateManager): void 
     async () => {
       const taskId = state.getActiveTaskId();
       if (taskId) {
-        updateTask(taskId, { findings: '[plan approved] Transitioning to implement state.' }, 'plan');
+        updateTask(
+          taskId,
+          { findings: '[plan approved] Transitioning to implement state.' },
+          'plan',
+        );
       }
       state.enterState('implement');
-      return success('Plan approved. Transitioned to **implement** state.\n\nAvailable: `impl_checkpoint`, `impl_test`, `impl_stuck`');
+      return respond(
+        state,
+        'Plan approved. Transitioned to **implement** state.',
+        '`impl_checkpoint` to record progress, `impl_test` to verify, `impl_stuck` if blocked.',
+      );
     },
   );
   state.registerTool('plan_approve', 'plan', approveHandle);

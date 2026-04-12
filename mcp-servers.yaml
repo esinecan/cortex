@@ -23,7 +23,15 @@
 external:
   playwright:
     command: npx
-    args: [-y, "@playwright/mcp@latest", --user-data-dir, "$HOME/Playwright-MCP-Profile", --viewport-size, "1920x1080"]
+    args:
+      [
+        -y,
+        '@playwright/mcp@latest',
+        --user-data-dir,
+        '$HOME/Playwright-MCP-Profile',
+        --viewport-size,
+        '1920x1080',
+      ]
     discovery_state: browse
     curated_tools:
       - browser_navigate
@@ -37,13 +45,13 @@ external:
 
   brave-search:
     command: npx
-    args: [-y, "@brave/brave-search-mcp-server"]
+    args: [-y, '@brave/brave-search-mcp-server']
     discovery_state: recon
     curated_tools:
       - brave_web_search
       - brave_summarizer
     env:
-      BRAVE_API_KEY: ""
+      BRAVE_API_KEY: ''
     env_from_claude: brave-search
 
 vendored:

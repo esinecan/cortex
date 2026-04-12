@@ -1,5 +1,10 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import type { CortexState, CortexToolEntry, CortexToolRegistry, FreeExploreEntry, GeneratedPathwayStep } from './types.js';
+import type {
+  CortexState,
+  CortexToolEntry,
+  CortexToolRegistry,
+  GeneratedPathwayStep,
+} from './types.js';
 import { loadState, saveState, appendFreeExploreEntry } from './storage.js';
 import { resolveState } from './states.js';
 import { loadTask, saveTask } from './storage.js';
@@ -62,11 +67,18 @@ export class StateManager {
       this.loopWarningEmitted = true;
       const taskId = this.state.active_task;
       if (taskId) {
-        updateTask(taskId, {
-          findings: `[loop-warning] ${this.toolCallCount} tool calls since last state transition. Possible loop detected. Last tool: ${toolName}`,
-        }, this.state.current_state);
+        updateTask(
+          taskId,
+          {
+            findings: `[loop-warning] ${this.toolCallCount} tool calls since last state transition. Possible loop detected. Last tool: ${toolName}`,
+          },
+          this.state.current_state,
+        );
       }
-      return { loopSuspected: false, warning: `Loop warning: ${this.toolCallCount} tool calls without state transition.` };
+      return {
+        loopSuspected: false,
+        warning: `Loop warning: ${this.toolCallCount} tool calls without state transition.`,
+      };
     }
 
     return { loopSuspected: false };
@@ -91,6 +103,35 @@ export class StateManager {
 
   getActiveTaskId(): string | null {
     return this.state.active_task;
+  }
+
+  /**
+   * One-line location breadcrumb for embedding in tool responses.
+   * Format: `[state | task: id | pathway step X/Y]` or `[state]` if minimal.
+   */
+  breadcrumb(): string {
+    const parts: string[] = [];
+
+    // State + level
+    const level = this.state.current_level ? ` L${this.state.current_level}` : '';
+    parts.push(`${this.state.current_state}${level}`);
+
+    // Active task
+    if (this.state.active_task) {
+      parts.push(`task: ${this.state.active_task}`);
+
+      // Pathway progress
+      const task = loadTask(this.state.active_task);
+      if (task?.generated_pathway) {
+        const gp = task.generated_pathway;
+        const done = gp.steps.filter((s) => s.status === 'completed').length;
+        parts.push(`step ${gp.current_step_index}/${gp.steps.length} (${done} done)`);
+      } else if (task?.pathway) {
+        parts.push(task.pathway);
+      }
+    }
+
+    return `> [${parts.join(' | ')}]`;
   }
 
   /** Markdown summary of the previous session, or null on first run. */
@@ -141,9 +182,13 @@ export class StateManager {
     if (genStep && genStep.base_state !== state) {
       const taskId = this.state.active_task;
       if (taskId) {
-        updateTask(taskId, {
-          findings: `[pathway:state-mismatch] Entered "${state}" but current step "${genStep.label}" expects "${genStep.base_state}"`,
-        }, state);
+        updateTask(
+          taskId,
+          {
+            findings: `[pathway:state-mismatch] Entered "${state}" but current step "${genStep.label}" expects "${genStep.base_state}"`,
+          },
+          state,
+        );
       }
     }
 
@@ -296,7 +341,12 @@ export class StateManager {
     let disabled = 0;
     for (const name of names) {
       const entry = this.registry.get(name);
-      if (entry && entry.handle.enabled && !ALWAYS_ON_STATES.has(entry.state) && entry.name !== 'cortex_discover') {
+      if (
+        entry &&
+        entry.handle.enabled &&
+        !ALWAYS_ON_STATES.has(entry.state) &&
+        entry.name !== 'cortex_discover'
+      ) {
         entry.handle.disable();
         disabled++;
       }
@@ -355,10 +405,11 @@ export class StateManager {
       // 3. Its name is explicitly listed in states.yaml for this state, OR
       // 4. Its registered state matches the current state (proxied tools via discovery_state)
       const baseState = entry.state.split(':')[0]; // strip ":discoverable" suffix
-      const shouldEnable = ALWAYS_ON_STATES.has(entry.state)
-        || (state === 'free' && !(genStep && genStep.tools.length > 0))
-        || activeTools.has(entry.name)
-        || baseState === state;
+      const shouldEnable =
+        ALWAYS_ON_STATES.has(entry.state) ||
+        (state === 'free' && !(genStep && genStep.tools.length > 0)) ||
+        activeTools.has(entry.name) ||
+        baseState === state;
 
       // Directly mutate the enabled flag to avoid per-tool notification spam.
       (entry.handle as any).enabled = shouldEnable;
@@ -382,7 +433,7 @@ export class StateManager {
     const task = loadTask(this.state.active_task);
     if (!task) return;
 
-    const openEntry = task.state_history.find(e => e.exited === null);
+    const openEntry = task.state_history.find((e) => e.exited === null);
     if (openEntry) {
       openEntry.exited = new Date().toISOString();
       saveTask(task);

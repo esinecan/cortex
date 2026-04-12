@@ -56,14 +56,17 @@ export interface StateLevel {
 export interface StateDefinition {
   description: string;
   tools?: string[];
-  levels?: Record<number, {
-    tools: string[];
-    inherits?: number;
-    additional_tools?: string[];
-    external_guidance?: ExternalGuidance;
-    additional_external_guidance?: { use?: string[] };
-    constraints?: string[];
-  }>;
+  levels?: Record<
+    number,
+    {
+      tools: string[];
+      inherits?: number;
+      additional_tools?: string[];
+      external_guidance?: ExternalGuidance;
+      additional_external_guidance?: { use?: string[] };
+      constraints?: string[];
+    }
+  >;
   skill_suggestions?: string[];
   external_guidance?: ExternalGuidance;
   constraints?: string[];

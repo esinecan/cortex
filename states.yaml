@@ -1,0 +1,123 @@
+base:
+  description: "Default state. Task management and state selection available."
+  tools: [suggest_state]
+  external_guidance:
+    use: []
+    avoid: []
+  constraints: []
+
+recon:
+  description: "Reconnaissance. Understand before acting. Read first, write when needed."
+  tools:
+    - recon_sweep
+    - recon_checkpoint
+  external_guidance:
+    use: [read, grep, glob]
+    avoid: [edit, write, bash_destructive]
+  constraints:
+    - "Do NOT edit code files -- this is understanding phase"
+    - "Prefer reads first. Write (tickets, comments, pages) when needed."
+    - "Save all findings via recon_checkpoint"
+
+plan:
+  description: "Structured planning. Produce a plan, validate it, get approval."
+  tools: [plan_draft, plan_validate, plan_approve]
+  external_guidance:
+    use: [read, grep, glob]
+    avoid: [edit, write]
+  constraints:
+    - "Do NOT edit files until plan is approved"
+
+implement:
+  description: "Active coding. Write code, run tests, checkpoint progress."
+  tools:
+    - impl_checkpoint
+    - impl_test
+    - impl_stuck
+  external_guidance:
+    use: [edit, write, bash, read, grep, glob]
+    avoid: []
+  constraints:
+    - "Run tests after changes"
+    - "Checkpoint regularly"
+
+debug:
+  description: "Debugging. Form hypotheses, check logs, query databases, trace across services."
+  tools:
+    - debug_hypothesis
+    - debug_log_check
+    - debug_db_query
+    - debug_distributed_trace
+    - debug_root_cause
+  external_guidance:
+    use: [read, grep, glob]
+    avoid: [edit, write]
+  constraints:
+    - "Form hypotheses before querying"
+    - "Your observability platform aggregates across services -- use it first (could be an external tool paired with cortex)"
+    - "Trace correlation IDs across services"
+
+validate:
+  description: "Verify changes work. Progressive: local gates, flow checks, browser E2E."
+  levels:
+    1:
+      tools:
+        - validate_prerequisites
+        - validate_setup
+        - validate_advance
+      external_guidance:
+        use: [bash, read, grep]
+        avoid: [edit, write]
+      constraints:
+        - "Run validate_prerequisites before manual checks"
+        - "Use validate_setup for recipes -- do not guess configurations"
+    2:
+      inherits: 1
+      additional_tools:
+        - validate_integration_flow
+      constraints:
+        - "Use validate_integration_flow to check pipeline stage health for an entity"
+        - "Cross-reference with your database tools if discrepancies found (could be an external tool paired with cortex)"
+    3:
+      inherits: 2
+      additional_tools: []
+      additional_external_guidance:
+        use: [playwright]
+      constraints:
+        - "browser_snapshot before every interaction"
+        - "Take screenshots as verification evidence"
+
+review:
+  description: "Self-review and PR preparation."
+  tools:
+    - review_diff_summary
+    - review_simulate
+    - review_checklist
+    - review_ready
+  external_guidance:
+    use: [git, read, grep]
+    avoid: [edit, write]
+  constraints:
+    - "Simulate relevant reviewer archetypes with review_simulate"
+    - "Run review_checklist before marking ready"
+    - "Use GitHub PR tools to check for parallel open PRs in the same area"
+
+browse:
+  description: "Focus state. Browser automation with Playwright tools."
+  tools:
+    - browse_capture
+  external_guidance:
+    use: []
+    avoid: [everything_else]
+  constraints:
+    - "Use browser_snapshot to see page state before acting"
+    - "Use browser_evaluate for anything the other tools can't do"
+    - "Record research findings via browse_capture"
+
+free:
+  description: "Open-ended mode. All tools available. No constraints."
+  tools: []
+  external_guidance:
+    use: [all]
+    avoid: []
+  constraints: []

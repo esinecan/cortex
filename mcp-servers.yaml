@@ -1,0 +1,72 @@
+# Cortex -- MCP Server Configuration
+# Source of truth for all proxied MCP servers.
+#
+# Variables: $HOME (user home), $PROJECT_ROOT (cortex install dir)
+# Vendored servers use 'entry' (relative to $PROJECT_ROOT), always launched via node.
+# External servers use 'command' + 'args'.
+#
+# To add your own server:
+#   1. Add an entry below (external or vendored)
+#   2. Set discovery_state to the state where its tools should appear
+#   3. List curated_tools (only these appear in the state; others are discoverable via free_explore)
+#   4. Restart cortex
+#
+# Example: adding a Datadog MCP server
+#   datadog:
+#     command: node
+#     args: [path/to/datadog-mcp/server.js]
+#     discovery_state: debug
+#     curated_tools:
+#       - dd_search_logs
+#       - dd_top_values
+
+external:
+  playwright:
+    command: npx
+    args: [-y, "@playwright/mcp@latest", --user-data-dir, "$HOME/Playwright-MCP-Profile", --viewport-size, "1920x1080"]
+    discovery_state: browse
+    curated_tools:
+      - browser_navigate
+      - browser_snapshot
+      - browser_click
+      - browser_type
+      - browser_evaluate
+      - browser_take_screenshot
+      - browser_wait_for
+      - browser_tabs
+
+  brave-search:
+    command: npx
+    args: [-y, "@brave/brave-search-mcp-server"]
+    discovery_state: recon
+    curated_tools:
+      - brave_web_search
+      - brave_summarizer
+    env:
+      BRAVE_API_KEY: ""
+    env_from_claude: brave-search
+
+vendored:
+  github:
+    entry: servers/github/dist/mcp/server.js
+    discovery_state: recon
+    curated_tools:
+      - get_commit
+      - list_commits
+      - get_file_contents
+      - list_branches
+      - search_code
+      - search_repositories
+      - search_users
+      - get_me
+      - get_teams
+      - get_team_members
+      - list_pull_requests
+      - pull_request_read
+      - search_pull_requests
+
+  commands:
+    entry: servers/commands/build/index.js
+    discovery_state: implement
+    curated_tools:
+      - run_command

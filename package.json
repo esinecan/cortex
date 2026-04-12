@@ -1,0 +1,25 @@
+{
+  "name": "cortex",
+  "version": "0.1.0",
+  "description": "Executive function layer — persistent tasks, state-based workflow, progressive capability. Pluggable MCP server proxying.",
+  "type": "module",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "start": "node dist/index.js",
+    "inspect": "npx @modelcontextprotocol/inspector node dist/index.js",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.1",
+    "yaml": "^2.7.1",
+    "zod": "^3.24.4"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.3",
+    "typescript": "^5.8.3",
+    "vitest": "^4.1.2"
+  }
+}

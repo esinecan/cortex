@@ -1,0 +1,170 @@
+golden:
+  description: "Feature development: understand, plan, build, verify, ship"
+  initial_state: recon
+  sequence: [recon, plan, implement, validate, review]
+  guidance:
+    recon:
+      - "Look up the ticket/issue in your issue tracker (could be an external tool paired with cortex)"
+      - "Search documentation for acceptance criteria and context"
+      - "Check git history and open PRs for parallel work"
+      - "Read relevant source files, check existing tests"
+      - "Pre-check: grep for existing types/interfaces before defining new ones"
+      - "recon_checkpoint: summarize findings, risks, and suggested approach"
+    plan:
+      - "Draft plan sections: what changes, where, why"
+      - "plan_validate: did you READ every file you reference? Signatures accurate?"
+      - "Scope audit: list ALL code paths this change touches. Missing one = production bug."
+      - "If touching schemas: verify the transformation shape separately."
+      - "Disconfirmation: spend equal time trying to disprove your approach"
+      - "plan_approve to transition to implement"
+    implement:
+      - "Follow your project's conventions and patterns"
+      - "impl_test after each significant change"
+      - "impl_checkpoint regularly -- findings survive session death"
+      - "impl_stuck if blocked"
+    validate:
+      - "validate_prerequisites -- check local env is ready"
+      - "validate_setup -- get recipes for local testing"
+      - "validate_advance to L2 for flow verification"
+      - "validate_integration_flow -- check pipeline stages for your entity"
+      - "validate_advance to L3 if browser/E2E verification needed"
+      - "When satisfied -> enter_state('review')"
+    review:
+      - "review_diff_summary -- see all changes at a glance"
+      - "review_simulate with relevant reviewer archetypes"
+      - "review_checklist -- standards compliance"
+      - "review_ready when all checks pass"
+
+investigation:
+  description: "Bug hunt: diagnose, fix, verify, ship"
+  initial_state: debug
+  sequence: [debug, implement, validate, review]
+  guidance:
+    debug:
+      - "Pick ONE representative case -- specific entity, request, or ID"
+      - "Classify early: DATA issue, CONFIG gap, or CODE bug. Each has a different path."
+      - "Find a CONTROL CASE -- a similar entity where behavior is correct. Compare."
+      - "debug_hypothesis with confidence % before querying anything"
+      - "Check logs via your observability platform (could be an external tool paired with cortex)"
+      - "debug_db_query for database investigation"
+      - "debug_distributed_trace for cross-service correlation"
+      - "debug_root_cause when you have evidence"
+    implement:
+      - "Fix should be minimal and targeted -- address root cause only"
+      - "impl_test -- verify the fix, check for regressions"
+      - "impl_checkpoint with root cause reference"
+    validate:
+      - "Run your CI checks locally"
+      - "validate_integration_flow if the bug affected a transaction flow"
+    review:
+      - "review_diff_summary"
+      - "Verify fix addresses the root cause recorded in debug"
+      - "review_checklist"
+      - "review_ready"
+
+knowledge:
+  description: "Quick answer: understand and respond, no building"
+  initial_state: recon
+  sequence: [recon]
+  guidance:
+    recon:
+      - "Search your documentation and knowledge base"
+      - "Read source files if code-level answer needed"
+      - "Use web search if external context needed"
+      - "recon_checkpoint with the answer"
+      - "Done -- task complete"
+
+e2e_verify:
+  description: "Standalone E2E verification: validate environment, flows, and UI"
+  initial_state: validate
+  sequence: [validate]
+  guidance:
+    validate:
+      l1:
+        - "validate_prerequisites -- check ports, credentials, services"
+        - "validate_setup for each environment component"
+        - "Fix any prerequisites that fail before advancing"
+      l2:
+        - "validate_integration_flow -- full entity health check"
+        - "Cross-reference with your database if discrepancies found"
+      l3:
+        - "browser_navigate to the application under test"
+        - "browser_snapshot to verify page loaded correctly"
+        - "Walk through critical user journey"
+        - "browser_take_screenshot as evidence"
+
+code_review:
+  description: "Code review: understand context, then review someone else's PR"
+  initial_state: recon
+  sequence: [recon, review]
+  guidance:
+    recon:
+      - "PR metadata: author, description, labels, CI status"
+      - "Scope scan: count files and lines. Big PR = flag early."
+      - "Ticket context: look up the issue in your tracker (could be an external tool paired with cortex)"
+      - "Author context: how many commits has this person made in the changed files? First-timer or expert?"
+      - "Parallel work: any other PRs touching the same files? Merge conflict risk."
+      - "File history: recent churn? Active refactor? Stable area touched for the first time?"
+      - "Branch freshness: how far behind main? Stale branch = likely conflicts post-approval."
+      - "CI: is the pipeline green? Don't review failing code unless failure is unrelated."
+      - "recon_checkpoint: ticket context, author familiarity, parallel work risk, CI status."
+    review:
+      l1:
+        - "Read diff line by line. Type safety: casts, any, optional mismatches?"
+        - "Test coverage: new paths tested? Tests test behavior or just structure?"
+        - "Pattern conformance: repo conventions? Naming? File structure?"
+        - "Dead code: unused additions? Stale code that should have been removed?"
+      l2:
+        - "AC match: map each criterion to specific diff lines. Unaddressed AC? Scope creep?"
+        - "Algorithm: correct result for all inputs?"
+        - "Edge cases: empty arrays, null, boundaries, concurrency, error paths"
+        - "Error handling: catch blocks add value or just swallow/rethrow?"
+      l3:
+        - "Schema/API changes: backward compatible? Consumers updated?"
+        - "Cross-repo: companion PRs needed? Shared package type changes?"
+        - "Deploy: independent deploy? Ordering dependency? Migration needed?"
+        - "Performance: N+1? Unbounded loops? Missing pagination?"
+        - "Security: injection? Auth changes? Sensitive data in logs/responses?"
+      verdict:
+        - "Classify findings: blockers (must fix), suggestions (should fix), nits (nice to fix)"
+        - "Draft review with specific file:line references"
+        - "Verdict: approve / request-changes / comment-only"
+
+free_roam:
+  description: "Open-ended work: questions, investigation, meta-tasks, anything that doesn't fit a structured pathway"
+  initial_state: free
+  sequence: [free]
+  loop: true
+  guidance:
+    free:
+      - "You have all tools available. Use whatever serves the task."
+      - "Checkpoint findings via task_update regularly -- this work is worth remembering"
+      - "Re-evaluate after each checkpoint: done? Evolved into a known pattern? Continue?"
+      - "If work crystallizes into a structured workflow, transition: task_create with the right pathway"
+      - "When done: task_update(status='completed') and exit_state"
+
+introspect:
+  description: "Self-audit: evaluate Cortex internals, identify improvements, implement changes"
+  initial_state: recon
+  sequence: [recon, plan, implement, validate]
+  guidance:
+    recon:
+      - "Identify the Cortex subsystem to audit (instructions, states, pathways, tools, storage)"
+      - "Read the relevant source files end-to-end"
+      - "Audit for: token waste, temporal misplacement, redundancy, dead code"
+      - "Use free_explore_analysis to check for recurring escape patterns"
+      - "recon_checkpoint with structured audit results"
+    plan:
+      - "Quantify: token count before vs after"
+      - "Map each move to exact file and location"
+      - "Verify no information is lost"
+      - "plan_approve when the edit list is concrete"
+    implement:
+      - "Edit in dependency order -- types first, then consumers"
+      - "impl_test after each file"
+      - "impl_checkpoint with before/after comparison"
+    validate:
+      - "Full vitest suite green"
+      - "Inspector-connect to built Cortex"
+      - "Verify tools surface at correct temporal point"
+      - "Check for zero error events"

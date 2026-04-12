@@ -349,9 +349,16 @@ export class StateManager {
     }
 
     for (const entry of this.registry.values()) {
+      // A tool is enabled if:
+      // 1. It's always-on, OR
+      // 2. Current state is free (escape hatch), OR
+      // 3. Its name is explicitly listed in states.yaml for this state, OR
+      // 4. Its registered state matches the current state (proxied tools via discovery_state)
+      const baseState = entry.state.split(':')[0]; // strip ":discoverable" suffix
       const shouldEnable = ALWAYS_ON_STATES.has(entry.state)
         || (state === 'free' && !(genStep && genStep.tools.length > 0))
-        || activeTools.has(entry.name);
+        || activeTools.has(entry.name)
+        || baseState === state;
 
       // Directly mutate the enabled flag to avoid per-tool notification spam.
       (entry.handle as any).enabled = shouldEnable;

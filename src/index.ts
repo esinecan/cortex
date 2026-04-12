@@ -51,17 +51,24 @@ async function main(): Promise<void> {
   // Stage 4b: Proxy external MCP servers
   await proxyExternalServers(server, state);
 
-  // Stage 5: Apply initial tool visibility based on saved state
-  const currentState = state.getState();
-  state.enterState(
-    currentState.current_state,
-    currentState.active_task ?? undefined,
-    currentState.current_level ?? undefined,
-  );
-
-  // Stage 6: Connect transport
+  // Stage 5: Connect transport BEFORE applying state gating.
+  // The MCP SDK's tools/list only returns enabled tools (line 69 of mcp.js).
+  // If we gate first, CC's initial tools/list won't see proxied tools.
+  // Connect with all tools enabled, then defer gating to let the first
+  // tools/list response go out with the full catalog.
   const transport = new StdioServerTransport();
   await server.connect(transport);
+
+  // Stage 6: Apply state gating after a tick to let the initial tools/list
+  // response go out with all tools visible.
+  const currentState = state.getState();
+  setTimeout(() => {
+    state.enterState(
+      currentState.current_state,
+      currentState.active_task ?? undefined,
+      currentState.current_level ?? undefined,
+    );
+  }, 100);
 
   const summary = state.getSessionSummary();
   if (summary) {

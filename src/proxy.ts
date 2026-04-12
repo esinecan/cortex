@@ -174,8 +174,9 @@ export async function proxyMcpServer(
     const assignedState = isCurated ? config.state : `${config.state}:discoverable`;
     stateManager.registerTool(toolName, assignedState, handle);
 
-    // Start disabled -- state manager will enable based on current state.
-    (handle as any).enabled = false;
+    // Leave enabled at registration. enterState() in index.ts will apply
+    // correct visibility before transport connects. This ensures CC's initial
+    // tools/list sees all registered tools (enabled or not after gating).
     toolNames.push(toolName);
   }
 

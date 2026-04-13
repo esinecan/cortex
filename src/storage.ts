@@ -35,6 +35,10 @@ function freeExploreLog(): string {
   return join(TASKS_DIR, '_free_explore_log.jsonl');
 }
 
+function crystallizeStateFile(): string {
+  return join(TASKS_DIR, '_crystallize_state.json');
+}
+
 function ensureDir(): void {
   if (!existsSync(TASKS_DIR)) {
     mkdirSync(TASKS_DIR, { recursive: true });
@@ -125,4 +129,29 @@ export function loadFreeExploreLog(): FreeExploreEntry[] {
   const content = readFileSync(logFile, 'utf-8').trim();
   if (!content) return [];
   return content.split('\n').map((line) => JSON.parse(line));
+}
+
+// -- Crystallization dedup state --
+
+/**
+ * Load the crystallization dedup map. Keys are task signatures, values are the
+ * last match-count at which we nudged for that signature. Used to suppress
+ * repeat tips until the count grows by another stride band.
+ */
+export function loadCrystallizeState(): Record<string, number> {
+  ensureDir();
+  const f = crystallizeStateFile();
+  if (!existsSync(f)) return {};
+  try {
+    return JSON.parse(readFileSync(f, 'utf-8'));
+  } catch (err) {
+    process.stderr.write(`[cortex] Failed to parse crystallize state: ${err}\n`);
+    return {};
+  }
+}
+
+/** Persist the crystallization dedup map. */
+export function saveCrystallizeState(s: Record<string, number>): void {
+  ensureDir();
+  writeFileSync(crystallizeStateFile(), JSON.stringify(s, null, 2));
 }

@@ -189,9 +189,10 @@ describe('StateManager', () => {
       expect(tools.find((t) => t.name === 'test_tool')).toBeTruthy();
     });
 
-    it('enables tools by name', () => {
+    it('reports allowed tools by name (new call-gate model)', () => {
       const mockHandle = {
-        enabled: false,
+        enabled: true,
+        handler: async () => ({ content: [{ type: 'text', text: 'ok' }] }),
         enable: function () {
           this.enabled = true;
         },
@@ -199,7 +200,14 @@ describe('StateManager', () => {
           this.enabled = false;
         },
       };
-      state.registerTool('test_tool', 'recon', mockHandle as any);
+      // Register with the `:discoverable` suffix used by proxied tools, so
+      // the test exercises the auto-allow-when-state-active path that
+      // enableTools is primarily about.
+      state.registerTool('test_tool', 'recon:discoverable', mockHandle as any);
+      // In base state, a recon-discoverable tool is gated off -> 0 callable
+      expect(state.enableTools(['test_tool']).enabled).toBe(0);
+      // After entering recon, the tool is callable -> reported as 1
+      state.enterState('recon');
       const result = state.enableTools(['test_tool']);
       expect(result.enabled).toBe(1);
       expect(result.notFound).toHaveLength(0);

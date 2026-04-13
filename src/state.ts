@@ -44,9 +44,72 @@ export class StateManager {
     this.server = server;
   }
 
-  /** Register a native or proxied tool with its state assignment. */
+  /**
+   * Register a native or proxied tool with its state assignment.
+   *
+   * Installs a call-time gate by wrapping the tool's handler. The tool stays
+   * advertised in `tools/list` always (enabled=true); gating happens on invoke.
+   * When a tool is called outside its allowed state, the wrapper returns a
+   * text response pointing to the state that enables it.
+   *
+   * This avoids the old mechanism (flipping enabled=false on transitions) which
+   * caused Claude Code to report every state change as "MCP server disconnected"
+   * for all tools that vanished from tools/list.
+   */
   registerTool(name: string, state: string, handle: CortexToolEntry['handle']): void {
+    const originalHandler = (handle as any).handler as (args: any, extra: any) => any;
+    (handle as any).handler = async (args: any, extra: any) => {
+      if (!this.isToolAllowed(name)) {
+        const current = this.state.current_state;
+        const enabling = state.split(':')[0];
+        return {
+          content: [
+            {
+              type: 'text',
+              text:
+                `Tool \`${name}\` is gated off in state \`${current}\`. ` +
+                `It belongs to state \`${enabling}\`. ` +
+                `Call \`enter_state("${enabling}")\` to enable it, or \`cortex_discover\` to list alternatives.`,
+            },
+          ],
+        };
+      }
+      return originalHandler(args, extra);
+    };
     this.registry.set(name, { name, state, handle });
+  }
+
+  /**
+   * Pure predicate: is this tool callable given the current state, level, and
+   * active generated pathway step? Used by the call-time gate wrapper in
+   * `registerTool`. Does not mutate anything.
+   */
+  isToolAllowed(toolName: string): boolean {
+    const entry = this.registry.get(toolName);
+    if (!entry) return true; // unknown tool: let it through, handler will 404
+    if (ALWAYS_ON_STATES.has(entry.state)) return true;
+
+    const current = this.state.current_state;
+    const resolved = resolveState(current, this.state.current_level ?? undefined);
+    const activeTools = new Set(resolved?.tools || []);
+    const genStep = this.getActiveGeneratedStep();
+
+    if (genStep && genStep.tools.length > 0) {
+      const stepTools = new Set(genStep.tools);
+      if (current === 'free') return stepTools.has(toolName);
+      return activeTools.has(toolName) && stepTools.has(toolName);
+    }
+
+    if (current === 'free') return true;
+
+    // The `:discoverable` suffix marks proxied tools that are auto-allowed
+    // whenever their base state is active (regardless of the level's tool
+    // list). Native tools register with a bare state name and must appear
+    // explicitly in the resolved state's tool list — so level-narrowing
+    // continues to work for leveled states like triage L1 → L2 → L3.
+    const baseState = entry.state.split(':')[0];
+    const isDiscoverable = entry.state !== baseState;
+    return activeTools.has(toolName) || (isDiscoverable && baseState === current);
   }
 
   /**
@@ -226,8 +289,10 @@ export class StateManager {
   }
 
   /**
-   * Enter free explore mode. Disables all tools except always-on and discover,
-   * logs the escape for analytics, and persists.
+   * Enter free explore mode. Under the call-gate model, free state simply
+   * relaxes the call-time gate so every registered tool is allowed.
+   * No SDK-level enable/disable flips happen here — the tool catalog stays
+   * stable to avoid the "MCP server disconnected" signal.
    */
   enterFreeExplore(reason?: string): void {
     this.freeExploreEnteredAt = new Date().toISOString();
@@ -237,15 +302,6 @@ export class StateManager {
     this.state.previous_level = this.state.current_level;
     this.state.current_state = 'free';
     this.state.current_level = null;
-
-    // In free explore: only enable always-on + discover tool.
-    // Other tools are discoverable and individually enableable.
-    // Direct mutation to avoid notification-per-tool flood.
-    for (const entry of this.registry.values()) {
-      const shouldEnable = ALWAYS_ON_STATES.has(entry.state) || entry.name === 'cortex_discover';
-      (entry.handle as any).enabled = shouldEnable;
-    }
-    this.notifyChanged();
 
     appendFreeExploreEntry({
       timestamp: this.freeExploreEnteredAt,
@@ -315,8 +371,10 @@ export class StateManager {
   }
 
   /**
-   * Enable specific tools by name. Used by cortex_discover in free explore.
-   * Returns count of newly enabled tools.
+   * Under the call-gate model, tools stay enabled in the SDK catalog at all
+   * times. This method is a reporting no-op kept for cortex_discover's
+   * API shape: it reports which names were recognized and how many are
+   * currently callable per `isToolAllowed`. No SDK flags are mutated.
    */
   enableTools(names: string[]): { enabled: number; notFound: string[] } {
     let enabled = 0;
@@ -325,34 +383,25 @@ export class StateManager {
       const entry = this.registry.get(name);
       if (!entry) {
         notFound.push(name);
-      } else if (!entry.handle.enabled) {
-        entry.handle.enable();
+      } else if (this.isToolAllowed(name)) {
         enabled++;
       }
     }
-    if (enabled > 0) this.notifyChanged();
     return { enabled, notFound };
   }
 
   /**
-   * Disable specific tools by name. Used to release tools after use in free explore.
+   * Reporting no-op. See `enableTools`.
    */
   disableTools(names: string[]): number {
-    let disabled = 0;
+    let count = 0;
     for (const name of names) {
       const entry = this.registry.get(name);
-      if (
-        entry &&
-        entry.handle.enabled &&
-        !ALWAYS_ON_STATES.has(entry.state) &&
-        entry.name !== 'cortex_discover'
-      ) {
-        entry.handle.disable();
-        disabled++;
+      if (entry && !ALWAYS_ON_STATES.has(entry.state) && entry.name !== 'cortex_discover') {
+        count++;
       }
     }
-    if (disabled > 0) this.notifyChanged();
-    return disabled;
+    return count;
   }
 
   /**
@@ -368,54 +417,21 @@ export class StateManager {
   }
 
   /**
-   * Enable/disable tools based on the current state's tool list.
-   * Always-on tools stay enabled. Free explore enables everything.
-   * When a generated pathway step is active and declares tools, the active set
-   * is narrowed to the intersection of state tools and step-declared tools.
+   * Gating is enforced at call-time by the wrapper installed in `registerTool`.
+   * This method is intentionally a no-op for SDK-level visibility.
    *
-   * Uses direct `enabled` property mutation instead of the SDK's `enable()`/`disable()`
-   * methods to avoid flooding the client with one `tools/list_changed` notification
-   * per tool. A single notification is sent after all visibility changes are applied.
+   * The old implementation flipped `handle.enabled` across the registry on every
+   * state transition. That removed tools from `tools/list`, which Claude Code
+   * reports as "MCP server disconnected" for each vanished tool. Under the new
+   * call-gate model the tool catalog stays stable; `isToolAllowed()` decides
+   * per-call whether to dispatch or return a gating hint.
+   *
+   * Kept as a method (not deleted) so callers that announce a state transition
+   * have one place to grow into — e.g. diagnostics, metrics, annotations — if
+   * we reintroduce visibility signalling later via a different channel.
    */
   private applyToolVisibility(): void {
-    const state = this.state.current_state;
-    const resolved = resolveState(state, this.state.current_level ?? undefined);
-    const activeTools = new Set(resolved?.tools || []);
-
-    // Generated pathway step tool scoping
-    const genStep = this.getActiveGeneratedStep();
-    if (genStep && genStep.tools.length > 0) {
-      const stepTools = new Set(genStep.tools);
-      if (state === 'free') {
-        // Free state has empty resolved tools. Use declared tools directly.
-        activeTools.clear();
-        for (const tool of stepTools) activeTools.add(tool);
-      } else {
-        // Intersect: keep only tools declared by the step
-        for (const tool of activeTools) {
-          if (!stepTools.has(tool)) activeTools.delete(tool);
-        }
-      }
-    }
-
-    for (const entry of this.registry.values()) {
-      // A tool is enabled if:
-      // 1. It's always-on, OR
-      // 2. Current state is free (escape hatch), OR
-      // 3. Its name is explicitly listed in states.yaml for this state, OR
-      // 4. Its registered state matches the current state (proxied tools via discovery_state)
-      const baseState = entry.state.split(':')[0]; // strip ":discoverable" suffix
-      const shouldEnable =
-        ALWAYS_ON_STATES.has(entry.state) ||
-        (state === 'free' && !(genStep && genStep.tools.length > 0)) ||
-        activeTools.has(entry.name) ||
-        baseState === state;
-
-      // Directly mutate the enabled flag to avoid per-tool notification spam.
-      (entry.handle as any).enabled = shouldEnable;
-    }
-
-    this.notifyChanged();
+    // no-op: call-gate enforces state, catalog stays stable.
   }
 
   private notifyChanged(): void {

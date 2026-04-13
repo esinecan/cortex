@@ -237,3 +237,37 @@ The signal: you notice the same free_explore escape pattern repeating. Run
 `free_explore_analysis` to see escape frequencies by state. Three or more
 escapes from the same state with similar reasons means a pathway is trying
 to emerge. Write it down.
+
+## Crystallization signals
+
+Two complementary nudges surface patterns worth crystallizing. Both trigger
+on the same threshold: a pattern has appeared 3+ times in the last 20
+completed tasks.
+
+**Passive (automatic).** When you complete a task via `task_update(status=
+"completed")`, cortex checks whether the just-completed task's "signature"
+recurs in recent history. If yes, the response carries a one-line tip
+pointing at the relevant section above. Silent otherwise. The tip dedupes
+per signature -- you won't see the same nudge on every completion, only
+when the count crosses a new stride band (3, 6, 9, ...).
+
+**Active (on demand).** Call `crystallize_check` at any time to get the full
+picture: every signature with 3+ occurrences, ordered by frequency, with
+the specific task ids for evidence. Useful when you suspect a pattern the
+passive nudge hasn't yet flagged, or when preparing a pathway from real
+data.
+
+Three signature kinds map to three recommendations:
+
+- `static:<pathway>` -> **strengthen-static**: a step in this pathway likely
+  wants promotion to a bridge tool. See "Anything can be an MCP server".
+- `generated:<hash>` -> **promote-generated**: you've hand-rolled the same
+  dynamic pathway multiple times. Promote it to a static entry in
+  `pathways.yaml`. See "Static pathways (pathways.yaml)".
+- `states:<shape>` -> **create-static**: an ad-hoc state walk is repeating.
+  Name it. See "Static pathways (pathways.yaml)".
+
+The signature precedence is static -> generated -> state-shape (first match
+wins). A task created with `pathway: "golden"` that never has `enter_state`
+called against its id will still hit `static:golden` -- the pathway is the
+signature, not the walk.

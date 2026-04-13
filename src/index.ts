@@ -16,6 +16,7 @@ import { registerReviewTools } from './tools/review.js';
 import { registerBrowseTools } from './tools/browse.js';
 import { registerValidateTools } from './tools/validate.js';
 import { registerPathwayTools } from './tools/pathway.js';
+import { registerThinkTools } from './tools/think.js';
 import { loadMcpServers } from './config.js';
 import { proxyMcpServer, disconnectAll } from './proxy.js';
 
@@ -47,6 +48,7 @@ async function main(): Promise<void> {
   registerBrowseTools(server, state);
   registerValidateTools(server, state);
   registerPathwayTools(server, state);
+  registerThinkTools(server, state);
 
   // Stage 4b: Proxy external MCP servers
   await proxyExternalServers(server, state);

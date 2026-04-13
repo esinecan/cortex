@@ -7,6 +7,13 @@ import { getPathway, getPathwayNames, formatGuidance } from '../pathways.js';
 import { loadFreeExploreLog } from '../storage.js';
 import { getAllProxiedServers } from '../proxy.js';
 import { success, error, respond } from '../respond.js';
+import {
+  detectCandidate,
+  collectRecurring,
+  sectionFor,
+  auditPathwayUsage,
+  digSignature,
+} from '../crystallize.js';
 
 /**
  * Always-on tools: task CRUD, state transitions, free explore, and tool discovery.
@@ -116,9 +123,16 @@ export function registerAlwaysOnTools(server: McpServer, state: StateManager): v
       );
       if (result.error) return error(result.error);
       const t = result.task!;
+
+      let crystallizationLine = '';
+      if (args.status === 'completed') {
+        const candidate = detectCandidate(t);
+        if (candidate) crystallizationLine = `\n\n${candidate.tip}`;
+      }
+
       return respond(
         state,
-        `Task ${t.id} updated. Status: ${t.status}. Findings: ${t.findings.length}.`,
+        `Task ${t.id} updated. Status: ${t.status}. Findings: ${t.findings.length}.${crystallizationLine}`,
         'Continue working, or `current_state` for guidance.',
       );
     },
@@ -681,4 +695,100 @@ export function registerAlwaysOnTools(server: McpServer, state: StateManager): v
     },
   );
   state.registerTool('free_explore_analysis', 'always-on', freeExploreAnalysisHandle);
+
+  const crystallizeCheckHandle = server.registerTool(
+    'crystallize_check',
+    {
+      description:
+        'Inspect recent completed tasks for repeated patterns. Default: list every ' +
+        'signature that has appeared 3+ times in the last 20 completed tasks, with ' +
+        'a recommendation. Pass `signature` to dig into one bucket: returns its ' +
+        'findings grouped by state, lightly deduplicated -- the cross-task view of ' +
+        'what the pattern is actually saying. Symmetric to free_explore_analysis: ' +
+        'that one nudges from escape patterns; this one nudges from completion ' +
+        'patterns.',
+      inputSchema: {
+        signature: z
+          .string()
+          .optional()
+          .describe(
+            'Optional. When provided, return findings grouped by state for tasks ' +
+              'sharing this signature (e.g. "static:golden"). Omit for the default ' +
+              'candidate list.',
+          ),
+      },
+    },
+    async (args) => {
+      if (args.signature) {
+        const groups = digSignature(args.signature);
+        if (groups.length === 0) {
+          return success(
+            `No findings grouped under signature "${args.signature}" ` +
+              `(either no matches, or matching tasks have no findings).`,
+          );
+        }
+        const lines: string[] = [`# Signature: ${args.signature}`, ''];
+        for (const { state: stateName, findings } of groups) {
+          lines.push(`## ${stateName} (${findings.length} unique finding${findings.length === 1 ? '' : 's'})`);
+          for (const f of findings) {
+            lines.push(`- [${f.task_id}] "${f.content.slice(0, 200)}"`);
+          }
+          lines.push('');
+        }
+        return success(lines.join('\n'));
+      }
+
+      const recurring = collectRecurring();
+      if (recurring.length === 0) {
+        return success(
+          'No recurring patterns yet (need 3+ completions sharing a signature).',
+        );
+      }
+
+      const lines: string[] = ['# Crystallization Candidates', ''];
+      for (const { signature: sig, tasks, recommendation, hotspot } of recurring) {
+        lines.push(`## ${sig} -- ${tasks.length} occurrences`);
+        lines.push(`Tasks: ${tasks.map((t) => t.id).join(', ')}`);
+        lines.push(`Suggestion: ${recommendation.kind}`);
+        if (hotspot) {
+          lines.push(
+            `Hotspot: ${hotspot.taskCount} of these tasks escaped from "${hotspot.state}" ` +
+              `(${hotspot.totalEscapes} total escapes)`,
+          );
+        }
+        lines.push(`See BRIDGES.md -> "${sectionFor(recommendation)}"`);
+        lines.push(`Dig: \`crystallize_check(signature="${sig}")\``);
+        lines.push('');
+      }
+      return success(lines.join('\n'));
+    },
+  );
+  state.registerTool('crystallize_check', 'always-on', crystallizeCheckHandle);
+
+  const pathwayUsageAuditHandle = server.registerTool(
+    'pathway_usage_audit',
+    {
+      description:
+        'Audit static pathways from pathways.yaml against the last 20 completed ' +
+        'tasks. Zero-use pathways are archival candidates: they clutter ' +
+        'suggest_state keywords without earning their keep. Mirror of ' +
+        'crystallize_check, which surfaces patterns that should BECOME pathways; ' +
+        'this one surfaces pathways that should be RETIRED.',
+    },
+    async () => {
+      const rows = auditPathwayUsage();
+      if (rows.length === 0) {
+        return success('No pathways defined in pathways.yaml.');
+      }
+
+      const lines: string[] = ['# Pathway Usage (last 20 completed tasks)', ''];
+      for (const { pathway, uses } of rows) {
+        const tag = uses === 0 ? ' -- archival candidate' : '';
+        const plural = uses === 1 ? 'use' : 'uses';
+        lines.push(`- \`${pathway}\` -- ${uses} ${plural}${tag}`);
+      }
+      return success(lines.join('\n'));
+    },
+  );
+  state.registerTool('pathway_usage_audit', 'always-on', pathwayUsageAuditHandle);
 }

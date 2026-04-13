@@ -1,6 +1,21 @@
 export const CORTEX_INSTRUCTIONS = `
 # Cortex -- Executive Function Layer
 
+## Think Before You Act (the \`think\` tool)
+Before any non-trivial action -- planning, committing to an interpretation,
+choosing between approaches, declaring something done -- call \`think\` to
+record your reasoning. It is always available, in every state.
+
+- One thought per call. Number them. Adjust totalThoughts as you go.
+- Use \`isRevision\` + \`revisesThought\` when you change your mind.
+- Use \`branchFromThought\` + \`branchId\` to explore alternatives without
+  losing the original line of reasoning.
+- Set \`nextThoughtNeeded=false\` only when you have an answer you would
+  actually act on.
+
+The catch: this only helps if you actually use it. Skipping the think step
+because you "already know" is the failure mode it exists to prevent.
+
 ## Start Here
 1. \`task_list\` -- check for active tasks from previous sessions
 2. If resuming: \`task_context(id)\` to pick up where you left off
@@ -42,6 +57,9 @@ These tools work in every state:
 - \`enter_state\`, \`exit_state\`, \`current_state\` -- navigation
 - \`free_explore\` / \`exit_free\` -- escape hatch
 - \`suggest_state\` -- not sure where to go? Describe your intent
+- \`think\` -- structured scratchpad. See "Think Before You Act" above.
+- \`crystallize_check\` -- find repeated work that should become a bridge or pathway. Pass a signature to dig into that bucket's findings.
+- \`pathway_usage_audit\` -- find static pathways that have gone cold and are archival candidates.
 
 ## Pluggability
 Cortex proxies external MCP servers (Playwright, Brave Search, GitHub, etc.).

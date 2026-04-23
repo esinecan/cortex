@@ -45,6 +45,23 @@ golden:
       - 'review_simulate with relevant reviewer archetypes'
       - 'review_checklist -- standards compliance'
       - 'review_ready when all checks pass'
+  exit_criteria:
+    recon:
+      - 'At least one recon_checkpoint finding saved'
+      - 'Ticket/issue context extracted (acceptance criteria or equivalent)'
+      - 'Parallel PRs or open branches on the same files surveyed'
+    plan:
+      - 'plan_approve called'
+      - 'Disconfirmation attempt recorded -- time spent trying to break the approach'
+    implement:
+      - 'impl_test green on the change set'
+      - 'impl_checkpoint saved with what-changed and why'
+    validate:
+      - 'validate_advance reached the level appropriate to the change (L1/L2/L3)'
+      - 'validate_integration_flow green for the target entity, or local CI green'
+    review:
+      - 'review_simulate run with relevant reviewer archetypes'
+      - 'review_ready called'
 
 investigation:
   description: 'Bug hunt: diagnose, fix, verify, ship'
@@ -72,6 +89,20 @@ investigation:
       - 'Verify fix addresses the root cause recorded in debug'
       - 'review_checklist'
       - 'review_ready'
+  exit_criteria:
+    debug:
+      - 'Hypothesis recorded with confidence %'
+      - 'Issue classified: DATA issue, CONFIG gap, or CODE bug'
+      - 'Control case identified (a working instance of the same shape)'
+      - 'debug_root_cause recorded with evidence when hypothesis confirmed'
+    implement:
+      - 'Fix is minimal and targeted at the recorded root cause'
+      - 'impl_test green'
+    validate:
+      - 'validate_integration_flow run for the specific entity that first triggered the bug'
+    review:
+      - 'review_ready called'
+      - 'PR description references the recorded root cause'
 
 knowledge:
   description: 'Quick answer: understand and respond, no building'
@@ -84,6 +115,10 @@ knowledge:
       - 'Use web search if external context needed'
       - 'recon_checkpoint with the answer'
       - 'Done -- task complete'
+  exit_criteria:
+    recon:
+      - 'Answer formed and saved via recon_checkpoint'
+      - 'Primary sources cited (docs, source with file:line, or external reference)'
 
 e2e_verify:
   description: 'Standalone E2E verification: validate environment, flows, and UI'
@@ -103,6 +138,16 @@ e2e_verify:
         - 'browser_snapshot to verify page loaded correctly'
         - 'Walk through critical user journey'
         - 'browser_take_screenshot as evidence'
+  exit_criteria:
+    validate:
+      l1:
+        - 'Prerequisites all green; no unresolved setup failures'
+      l2:
+        - 'validate_integration_flow returned green for the target entity'
+        - 'Discrepancies (if any) resolved or documented'
+      l3:
+        - 'Critical user journey completed end-to-end in the browser'
+        - 'Evidence captured via browser_take_screenshot'
 
 code_review:
   description: "Code review: understand context, then review someone else's PR"
@@ -140,6 +185,15 @@ code_review:
         - 'Classify findings: blockers (must fix), suggestions (should fix), nits (nice to fix)'
         - 'Draft review with specific file:line references'
         - 'Verdict: approve / request-changes / comment-only'
+  exit_criteria:
+    recon:
+      - 'PR scope understood: author, labels, CI status, file count'
+      - 'Ticket/issue context mapped; parallel-work risk assessed'
+      - 'recon_checkpoint states what you EXPECT the diff to do'
+    review:
+      - 'review_simulate run across relevant personas'
+      - 'Findings classified: blockers / suggestions / nits'
+      - 'Verdict decided and written up with file:line references'
 
 free_roam:
   description: "Open-ended work: questions, investigation, meta-tasks, anything that doesn't fit a structured pathway"
@@ -153,6 +207,10 @@ free_roam:
       - 'Re-evaluate after each checkpoint: done? Evolved into a known pattern? Continue?'
       - 'If work crystallizes into a structured workflow, transition: task_create with the right pathway'
       - "When done: task_update(status='completed') and exit_state"
+  exit_criteria:
+    free:
+      - 'Findings checkpointed via task_update at least once'
+      - 'Re-evaluation done: task is either completed or reclassified into a structured pathway'
 
 introspect:
   description: 'Self-audit: evaluate Cortex internals, identify improvements, implement changes'
@@ -179,3 +237,18 @@ introspect:
       - 'Inspector-connect to built Cortex'
       - 'Verify tools surface at correct temporal point'
       - 'Check for zero error events'
+  exit_criteria:
+    recon:
+      - 'Target subsystem audited end-to-end'
+      - 'Findings classified (keep / move / remove) with specific targets'
+      - 'Escape-log patterns consulted via free_explore_analysis'
+    plan:
+      - 'Before/after token comparison quantified'
+      - 'Each move mapped to an exact destination'
+      - 'plan_approve called'
+    implement:
+      - 'Edits made in dependency order (types first, consumers after)'
+      - 'impl_test green after each file'
+    validate:
+      - 'Full vitest suite green'
+      - 'Inspector round-trip confirms the change took effect'

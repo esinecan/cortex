@@ -147,6 +147,12 @@ export interface PathwayDefinition {
   sequence: string[];
   loop?: boolean;
   guidance: Record<string, string[] | Record<string, string[]>>;
+  /**
+   * Display-only "ready to leave this state when..." hints, parallel to guidance.
+   * Same shape: flat array for unleveled states, or {l1, l2, l3} for leveled ones.
+   * Rendered under guidance; not enforced (use generated pathways for gated criteria).
+   */
+  exit_criteria?: Record<string, string[] | Record<string, string[]>>;
 }
 
 // -- Tool registry --

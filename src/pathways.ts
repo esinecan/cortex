@@ -64,6 +64,28 @@ export function getNextState(pathwayName: string, currentState: string): string 
 }
 
 /**
+ * Get exit criteria for a specific state within a pathway. Returns null when
+ * the pathway has no exit_criteria block or the state has no entry.
+ */
+export function getExitCriteria(
+  pathwayName: string,
+  stateName: string,
+  level?: number,
+): string[] | null {
+  const pathway = pathwayDefinitions[pathwayName];
+  if (!pathway?.exit_criteria) return null;
+
+  const stateCriteria = pathway.exit_criteria[stateName];
+  if (!stateCriteria) return null;
+
+  if (Array.isArray(stateCriteria)) return stateCriteria;
+
+  const levelKey = `l${level || 1}`;
+  const leveled = (stateCriteria as Record<string, string[]>)[levelKey];
+  return leveled || null;
+}
+
+/**
  * Format pathway guidance as markdown for inclusion in tool responses.
  */
 export function formatGuidance(pathwayName: string, stateName: string, level?: number): string {
@@ -82,6 +104,14 @@ export function formatGuidance(pathwayName: string, stateName: string, level?: n
 
   for (let i = 0; i < steps.length; i++) {
     lines.push(`${i + 1}. ${steps[i]}`);
+  }
+
+  const exitCriteria = getExitCriteria(pathwayName, stateName, level);
+  if (exitCriteria && exitCriteria.length > 0) {
+    lines.push('', `### Ready to leave ${stateName}${level ? ` L${level}` : ''} when`);
+    for (const c of exitCriteria) {
+      lines.push(`- ${c}`);
+    }
   }
 
   const next = getNextState(pathwayName, stateName);

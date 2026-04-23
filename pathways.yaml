@@ -252,3 +252,92 @@ introspect:
     validate:
       - 'Full vitest suite green'
       - 'Inspector round-trip confirms the change took effect'
+
+diagnose:
+  description: "Diagnostic-only: find and document root cause, then hand off. No code change in this pathway -- use investigation for bug hunts that need a fix."
+  initial_state: debug
+  sequence: [debug]
+  loop: true
+  guidance:
+    debug:
+      - 'Pick ONE representative case -- specific entity, request, or ID'
+      - 'Classify intent: DATA issue, CONFIG gap, CODE bug, or INFORMATIONAL (pure research/trace). Each routes to a different handoff.'
+      - 'Find a CONTROL CASE before deep-diving the broken one. Compare side-by-side.'
+      - 'debug_hypothesis with confidence % before querying anything'
+      - 'Check your observability platform first for logs. Scope by env if it spans multiple deployments.'
+      - 'debug_db_query for database investigation; include metadata (who/when last wrote) on key documents'
+      - 'insp_connect + insp_tools_call -- introspect live services via their MCP surface when a tool-level reproducer helps'
+      - 'debug_distributed_trace for cross-service correlation if applicable'
+      - "Ask the NORMAL mechanism first ('how does X work'), THEN the recovery mechanism. Docs describe both -- conflating them causes misdiagnosis."
+      - 'debug_root_cause when you have evidence; document the handoff path (who acts, where, by when)'
+      - 'Pathway check: if this starts leading to a code change, transition to investigation via a new task.'
+  exit_criteria:
+    debug:
+      - 'Hypothesis stated with confidence %'
+      - 'Classification recorded: DATA / CONFIG / CODE / INFORMATIONAL'
+      - 'Control case identified, or explicit note that none exists'
+      - 'Root cause confirmed with evidence array via debug_root_cause'
+      - 'Handoff path recorded: who acts, where, by when'
+
+coach:
+  description: 'Domain coaching: research deeply, test hands-on, then coach, quiz, and prep the user'
+  initial_state: recon
+  sequence: [recon, validate, free]
+  guidance:
+    recon:
+      - 'Search your documentation and knowledge base for the topic'
+      - 'Check your issue tracker for requirements, decisions, and acceptance criteria'
+      - 'Search team chat or wiki for discussions and tribal knowledge'
+      - 'Read source code end-to-end -- trace the actual implementation, not the docs'
+      - 'list_commits for how this area evolved and why'
+      - 'Exercise the domain in isolation if possible (dry-run, read-only query)'
+      - 'Build a knowledge map: core concepts, relationships, edge cases, gotchas'
+      - 'Identify common misconceptions and what makes this domain tricky'
+      - 'Prepare a teaching outline: what to cover, in what order, with what examples'
+      - 'recon_checkpoint: topic summary, outline, gotchas'
+    validate:
+      l1:
+        - 'validate_prerequisites -- the environment you would demo in is reachable'
+        - 'Skip to L2 -- L1 is just a gate here'
+      l2:
+        - 'Exercise the domain hands-on. Trace a real entity through the system.'
+        - 'Verify research findings match reality -- catch gaps between docs and code'
+        - 'Collect concrete examples with real identifiers for coaching'
+        - 'If UI-relevant -> validate_advance to L3'
+      l3:
+        - 'browser_navigate to the relevant UI and walk through the feature'
+        - 'browser_snapshot key screens that illustrate the concept'
+        - 'browser_take_screenshot for coaching reference material'
+    free:
+      - '--- COACH ---'
+      - 'Present findings structured: context first, then architecture, then implementation'
+      - 'Walk through concrete examples from your testing -- real entities, real data'
+      - "Highlight gotchas, tribal knowledge, things-that-look-right-but-aren't"
+      - 'Explain not just what but why -- design decisions, constraints, trade-offs'
+      - '--- QUIZ ---'
+      - "Start conceptual: 'what happens when X?', 'why does Y exist?'"
+      - "Escalate to scenario: 'a user reports Z -- where do you look first?'"
+      - 'Ask edge-case questions based on gotchas found in research'
+      - 'Do NOT reveal answers immediately -- let the user reason through'
+      - "Track strong vs weak areas from the user's responses"
+      - '--- FILL GAPS ---'
+      - 'Re-teach weak areas with different examples or deeper code walkthroughs'
+      - 'Provide the aha connections the user missed'
+      - 'Re-quiz previously weak areas to confirm understanding'
+      - 'Final checkpoint: what was covered, readiness level, remaining gaps'
+  exit_criteria:
+    recon:
+      - 'Domain researched across docs, issue tracker, source, and history'
+      - 'Teaching outline drafted with concrete examples and identified gotchas'
+    validate:
+      l1:
+        - 'Environment reachable (prerequisite check green)'
+      l2:
+        - 'Hands-on exercise of the domain completed with real identifiers'
+        - 'Research findings cross-checked against reality; gaps logged'
+      l3:
+        - 'Relevant UI flows captured via browser screenshots'
+    free:
+      - 'Coaching delivered: concepts -> examples -> gotchas -> why'
+      - 'Quiz completed with tracked strong/weak areas'
+      - 'Gap-fill round done; final readiness checkpoint saved'

@@ -16,7 +16,9 @@ import {
   collectRecurring,
   correlateEscapes,
   auditPathwayUsage,
+  digPathwayDeviations,
   digSignature,
+  DIG_FINDINGS_TAIL,
   WINDOW,
   THRESHOLD,
   HOTSPOT_MIN_TASKS,
@@ -574,6 +576,184 @@ describe('crystallize', () => {
       const groups = digSignature('static:golden');
       const ids = groups[0].findings.map((f) => f.task_id).sort();
       expect(ids).toEqual(['src-a', 'src-b']);
+    });
+  });
+
+  describe('auditPathwayDeviations()', () => {
+    it('returns an empty array when no completed pathway tasks exist', async () => {
+      const { auditPathwayDeviations } = await import('../src/crystallize.js');
+      expect(auditPathwayDeviations()).toEqual([]);
+    });
+
+    it('reports zero deviations when every prescribed state is visited', async () => {
+      const { auditPathwayDeviations } = await import('../src/crystallize.js');
+      writeTask(tmpDir, {
+        pathway: 'golden',
+        state_history: hist('recon', 'plan', 'implement', 'validate', 'review'),
+      });
+      const rows = auditPathwayDeviations();
+      expect(rows).toHaveLength(1);
+      expect(rows[0].pathway).toBe('golden');
+      expect(rows[0].taskCount).toBe(1);
+      expect(rows[0].adminClosures).toBe(0);
+      expect(rows[0].skippedStates).toEqual([]);
+    });
+
+    it('counts prescribed states that were never visited', async () => {
+      const { auditPathwayDeviations } = await import('../src/crystallize.js');
+      writeTask(tmpDir, {
+        pathway: 'golden',
+        state_history: hist('recon', 'implement'),
+      });
+      const rows = auditPathwayDeviations();
+      const skipped = rows[0].skippedStates.map((s) => s.state).sort();
+      expect(skipped).toEqual(['plan', 'review', 'validate']);
+      expect(rows[0].skippedStates[0].skipCount).toBe(1);
+      expect(rows[0].skippedStates[0].skipRate).toBe(1);
+    });
+
+    it('aggregates skip counts across multiple tasks of the same pathway', async () => {
+      const { auditPathwayDeviations } = await import('../src/crystallize.js');
+      writeTask(tmpDir, {
+        id: 't1',
+        pathway: 'golden',
+        state_history: hist('recon', 'plan', 'implement', 'validate', 'review'),
+      });
+      writeTask(tmpDir, {
+        id: 't2',
+        pathway: 'golden',
+        state_history: hist('recon', 'plan', 'implement', 'review'),
+      });
+      writeTask(tmpDir, {
+        id: 't3',
+        pathway: 'golden',
+        state_history: hist('recon', 'implement'),
+      });
+
+      const rows = auditPathwayDeviations();
+      const row = rows.find((r) => r.pathway === 'golden')!;
+      const byState = new Map(row.skippedStates.map((s) => [s.state, s]));
+      expect(byState.get('validate')?.skipCount).toBe(2);
+      expect(byState.get('plan')?.skipCount).toBe(1);
+      expect(byState.get('review')?.skipCount).toBe(1);
+      expect(row.taskCount).toBe(3);
+      expect(row.adminClosures).toBe(0);
+    });
+
+    it('buckets tasks with empty state history into adminClosures, not skip rates', async () => {
+      const { auditPathwayDeviations } = await import('../src/crystallize.js');
+      writeTask(tmpDir, {
+        id: 'real',
+        pathway: 'golden',
+        state_history: hist('recon', 'plan', 'implement', 'validate', 'review'),
+      });
+      writeTask(tmpDir, { id: 'admin1', pathway: 'golden', state_history: [] });
+      writeTask(tmpDir, { id: 'admin2', pathway: 'golden', state_history: hist('base', 'free') });
+      const row = auditPathwayDeviations().find((r) => r.pathway === 'golden')!;
+      expect(row.taskCount).toBe(1);
+      expect(row.adminClosures).toBe(2);
+      expect(row.skippedStates).toEqual([]);
+    });
+
+    it('reports adminClosures=N and taskCount=0 when all completions are admin closures', async () => {
+      const { auditPathwayDeviations } = await import('../src/crystallize.js');
+      writeTask(tmpDir, { id: 'a1', pathway: 'golden', state_history: [] });
+      writeTask(tmpDir, { id: 'a2', pathway: 'golden', state_history: [] });
+      const row = auditPathwayDeviations().find((r) => r.pathway === 'golden')!;
+      expect(row.taskCount).toBe(0);
+      expect(row.adminClosures).toBe(2);
+      expect(row.skippedStates).toEqual([]);
+    });
+
+    it('ignores base and free transitions in the visited set', async () => {
+      const { auditPathwayDeviations } = await import('../src/crystallize.js');
+      writeTask(tmpDir, {
+        pathway: 'golden',
+        state_history: hist('base', 'recon', 'free', 'plan', 'implement', 'validate', 'review'),
+      });
+      const rows = auditPathwayDeviations();
+      expect(rows[0].skippedStates).toEqual([]);
+    });
+
+    it('skips tasks whose pathway name is not in pathways.yaml', async () => {
+      const { auditPathwayDeviations } = await import('../src/crystallize.js');
+      writeTask(tmpDir, { pathway: 'ghost', state_history: hist('recon') });
+      writeTask(tmpDir, {
+        pathway: 'golden',
+        state_history: hist('recon', 'plan', 'implement', 'validate', 'review'),
+      });
+      const rows = auditPathwayDeviations();
+      expect(rows.map((r) => r.pathway)).toEqual(['golden']);
+    });
+
+    it('does not double-count: a task with base+free only is an admin closure, not a deviation', async () => {
+      const { auditPathwayDeviations } = await import('../src/crystallize.js');
+      writeTask(tmpDir, { pathway: 'golden', state_history: hist('base', 'free', 'base') });
+      const rows = auditPathwayDeviations();
+      expect(rows[0].taskCount).toBe(0);
+      expect(rows[0].adminClosures).toBe(1);
+      expect(rows[0].skippedStates).toEqual([]);
+    });
+  });
+
+  describe('digPathwayDeviations()', () => {
+    it('returns empty array for an unknown pathway', () => {
+      expect(digPathwayDeviations('ghost')).toEqual([]);
+    });
+
+    it('returns empty array when no completed tasks match the pathway', () => {
+      writeTask(tmpDir, { pathway: 'golden', status: 'active' });
+      expect(digPathwayDeviations('golden')).toEqual([]);
+    });
+
+    it('returns per-task visited and skipped states in prescribed order', () => {
+      writeTask(tmpDir, {
+        id: 'dig-1',
+        title: 'small bug fix',
+        pathway: 'investigation',
+        state_history: hist('debug', 'implement'),
+      });
+      const rows = digPathwayDeviations('investigation');
+      expect(rows).toHaveLength(1);
+      expect(rows[0].taskId).toBe('dig-1');
+      expect(rows[0].title).toBe('small bug fix');
+      expect(rows[0].visitedStates).toEqual(['debug', 'implement']);
+      expect(rows[0].skippedStates).toEqual(['validate', 'review']);
+    });
+
+    it('surfaces out-of-sequence states that were visited but not prescribed', () => {
+      writeTask(tmpDir, {
+        id: 'dig-oos',
+        pathway: 'knowledge',
+        state_history: hist('recon', 'implement'),
+      });
+      const rows = digPathwayDeviations('knowledge');
+      expect(rows[0].visitedStates).toEqual(['recon', 'implement']);
+      expect(rows[0].skippedStates).toEqual([]);
+    });
+
+    it('includes the tail of findings, bounded by DIG_FINDINGS_TAIL', () => {
+      const many: TaskFinding[] = [];
+      for (let i = 0; i < DIG_FINDINGS_TAIL + 3; i++) {
+        many.push(finding('debug', `f${i}`, new Date(1700000000000 + i * 1000).toISOString()));
+      }
+      writeTask(tmpDir, {
+        id: 'dig-f',
+        pathway: 'investigation',
+        state_history: hist('debug', 'implement', 'validate', 'review'),
+        findings: many,
+      });
+      const rows = digPathwayDeviations('investigation');
+      expect(rows[0].findingsTail).toHaveLength(DIG_FINDINGS_TAIL);
+      expect(rows[0].findingsTail[0].content).toBe(`f${many.length - DIG_FINDINGS_TAIL}`);
+      expect(rows[0].findingsTail.at(-1)?.content).toBe(`f${many.length - 1}`);
+    });
+
+    it('orders rows newest first by updated timestamp', () => {
+      writeTask(tmpDir, { id: 'older', pathway: 'golden', updated: '2026-04-01T00:00:00Z' });
+      writeTask(tmpDir, { id: 'newer', pathway: 'golden', updated: '2026-04-02T00:00:00Z' });
+      const rows = digPathwayDeviations('golden');
+      expect(rows.map((r) => r.taskId)).toEqual(['newer', 'older']);
     });
   });
 });

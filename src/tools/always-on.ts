@@ -12,6 +12,8 @@ import {
   collectRecurring,
   sectionFor,
   auditPathwayUsage,
+  auditPathwayDeviations,
+  digPathwayDeviations,
   digSignature,
 } from '../crystallize.js';
 
@@ -215,7 +217,27 @@ export function registerAlwaysOnTools(server: McpServer, state: StateManager): v
         return success(`Current state: ${s.current_state} (free explore)`);
       }
       const info = formatStateInfo(resolved);
-      const taskLine = s.active_task ? `\n**Active task:** ${s.active_task}` : '';
+      let taskLine = '';
+      if (s.active_task) {
+        const t = getTask(s.active_task);
+        if (t) {
+          const pwTag = t.pathway ? ` [${t.pathway}]` : '';
+          let stepTag = '';
+          if (t.generated_pathway) {
+            const gp = t.generated_pathway;
+            stepTag = ` step ${gp.current_step_index + 1}/${gp.steps.length}`;
+          } else if (t.pathway) {
+            const pw = getPathway(t.pathway);
+            if (pw) {
+              const idx = pw.sequence.indexOf(s.current_state);
+              if (idx >= 0) stepTag = ` step ${idx + 1}/${pw.sequence.length}`;
+            }
+          }
+          taskLine = `\n**Active task:** ${t.id} -- ${t.title}${pwTag}${stepTag}`;
+        } else {
+          taskLine = `\n**Active task:** ${s.active_task}`;
+        }
+      }
 
       let guidanceLine = '';
       if (s.active_task) {
@@ -791,4 +813,95 @@ export function registerAlwaysOnTools(server: McpServer, state: StateManager): v
     },
   );
   state.registerTool('pathway_usage_audit', 'always-on', pathwayUsageAuditHandle);
+
+  const pathwayDeviationAuditHandle = server.registerTool(
+    'pathway_deviation_audit',
+    {
+      description:
+        "Audit completed tasks against their pathway's prescribed sequence. " +
+        'Default: aggregate report -- for each pathway used in the last 20 completions, ' +
+        'lists prescribed states that were skipped and by how many tasks. ' +
+        'Pass `pathway` to dig into one bucket and get per-task detail (visited/skipped ' +
+        'states, last few findings) so you can classify whether skips mean over-prescription, ' +
+        'discipline gaps, or measurement gaps. Companion to pathway_usage_audit: that one ' +
+        'surfaces pathways with zero uses; this one surfaces states inside live pathways ' +
+        'that agents consistently skip.',
+      inputSchema: {
+        pathway: z
+          .string()
+          .optional()
+          .describe('Optional. Return per-task dig detail for this pathway instead of the aggregate.'),
+      },
+    },
+    async (args) => {
+      if (args.pathway) {
+        const rows = digPathwayDeviations(args.pathway);
+        if (rows.length === 0) {
+          return success(
+            `No completed tasks with pathway "${args.pathway}" in the last 20 completions.`,
+          );
+        }
+        const lines: string[] = [
+          `# Pathway Deviation Dig: ${args.pathway}`,
+          '',
+          `*${rows.length} completed task(s), newest first.*`,
+          '',
+        ];
+        for (const r of rows) {
+          lines.push(`## ${r.taskId} -- ${r.title}`);
+          lines.push(`Updated: ${r.updated}`);
+          lines.push(`Visited: ${r.visitedStates.length ? r.visitedStates.join(' -> ') : '(none)'}`);
+          lines.push(`Skipped: ${r.skippedStates.length ? r.skippedStates.join(', ') : '(none)'}`);
+          if (r.findingsTail.length === 0) {
+            lines.push('Findings: (none)');
+          } else {
+            lines.push(`Findings (last ${r.findingsTail.length}):`);
+            for (const f of r.findingsTail) {
+              const preview = f.content.length > 200 ? f.content.slice(0, 200) + '...' : f.content;
+              lines.push(`- [${f.state}] ${f.ts}: ${preview}`);
+            }
+          }
+          lines.push('');
+        }
+        return success(lines.join('\n'));
+      }
+
+      const rows = auditPathwayDeviations();
+      if (rows.length === 0) {
+        return success('No completed tasks with a pathway in the last 20 completions.');
+      }
+
+      const lines: string[] = [
+        '# Pathway Deviation Audit',
+        '',
+        '*Last 20 completed tasks with a static pathway.*',
+        '',
+      ];
+      for (const { pathway, taskCount, adminClosures, prescribedStates, skippedStates } of rows) {
+        const label = taskCount === 1 ? 'task' : 'tasks';
+        const adminNote =
+          adminClosures > 0
+            ? ` (+${adminClosures} admin closure${adminClosures === 1 ? '' : 's'} excluded)`
+            : '';
+        lines.push(`## ${pathway} -- ${taskCount} real ${label}${adminNote}`);
+        lines.push(`Prescribed: ${prescribedStates.join(' -> ')}`);
+        if (taskCount === 0) {
+          lines.push('No real workflow runs -- all completions were administrative closures.');
+        } else if (skippedStates.length === 0) {
+          lines.push('No deviations -- every real run visited every prescribed state.');
+        } else {
+          lines.push('Skipped states:');
+          for (const s of skippedStates) {
+            const pct = Math.round(s.skipRate * 100);
+            const tag = s.skipRate >= 0.5 ? ' -- design review candidate' : '';
+            lines.push(`- \`${s.state}\` skipped by ${s.skipCount}/${taskCount} (${pct}%)${tag}`);
+          }
+          lines.push(`Dig: \`pathway_deviation_audit(pathway="${pathway}")\``);
+        }
+        lines.push('');
+      }
+      return success(lines.join('\n'));
+    },
+  );
+  state.registerTool('pathway_deviation_audit', 'always-on', pathwayDeviationAuditHandle);
 }

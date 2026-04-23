@@ -3,7 +3,7 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { CORTEX_INSTRUCTIONS } from './instructions.js';
+import { buildInstructions } from './instructions.js';
 import { loadStates } from './states.js';
 import { loadPathways } from './pathways.js';
 import { StateManager } from './state.js';
@@ -34,7 +34,7 @@ async function main(): Promise<void> {
   // Stage 3: Create MCP server
   const server = new McpServer(
     { name: 'cortex', version: '0.1.0' },
-    { instructions: CORTEX_INSTRUCTIONS },
+    { instructions: buildInstructions() },
   );
   state.setServer(server);
 

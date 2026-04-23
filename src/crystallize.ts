@@ -15,7 +15,7 @@ import {
   saveCrystallizeState,
   loadFreeExploreLog,
 } from './storage.js';
-import { getPathwayNames } from './pathways.js';
+import { getPathwayNames, getPathway } from './pathways.js';
 
 /** How many completed tasks to look back through. */
 export const WINDOW = 20;
@@ -340,4 +340,163 @@ export function digSignature(
 
 function normalizeForDedup(s: string): string {
   return s.toLowerCase().replace(/\s+/g, ' ').trim().slice(0, 80);
+}
+
+/** One row of the deviation audit, per pathway. */
+export interface PathwayDeviationRow {
+  pathway: string;
+  /** Tasks with at least one non-base/free state in history -- the real workflow runs. */
+  taskCount: number;
+  /**
+   * Tasks marked completed with zero non-base/free state history. These are
+   * administrative closures, not real pathway runs, and are reported separately
+   * so they don't inflate skip rates.
+   */
+  adminClosures: number;
+  prescribedStates: string[];
+  skippedStates: Array<{ state: string; skipCount: number; skipRate: number }>;
+}
+
+/**
+ * For each pathway observed in the last WINDOW completed tasks, compare each
+ * task's `state_history` against the pathway's prescribed `sequence` and count
+ * prescribed states that were never visited. `base` and `free` are ignored in
+ * the visited set since they're transitional/escape states.
+ *
+ * Tasks with empty state history are bucketed into `adminClosures` -- they
+ * represent tasks closed without ever being associated to a state, not real
+ * deviations. Skip rates are computed over the real-run bucket only.
+ *
+ * Companion to auditPathwayUsage: that one surfaces pathways with 0 uses
+ * (archival candidates); this one surfaces pathways that ARE used but whose
+ * prescribed states get skipped -- a pathway-design signal.
+ */
+export function auditPathwayDeviations(): PathwayDeviationRow[] {
+  const completed = listTasks()
+    .filter((t) => t.status === 'completed' && t.pathway)
+    .sort((a, b) => b.updated.localeCompare(a.updated))
+    .slice(0, WINDOW);
+
+  const byPathway = new Map<string, typeof completed>();
+  for (const t of completed) {
+    if (!t.pathway) continue;
+    const bucket = byPathway.get(t.pathway) ?? [];
+    bucket.push(t);
+    byPathway.set(t.pathway, bucket);
+  }
+
+  const rows: PathwayDeviationRow[] = [];
+  for (const [pathwayName, tasks] of byPathway) {
+    const pathway = getPathway(pathwayName);
+    if (!pathway) continue;
+    const prescribed = pathway.sequence;
+
+    const skipCounts = new Map<string, number>();
+    for (const state of prescribed) skipCounts.set(state, 0);
+
+    let realRuns = 0;
+    let adminClosures = 0;
+
+    for (const t of tasks) {
+      const visited = new Set(
+        (t.state_history ?? []).map((e) => e.state).filter((s) => s !== 'base' && s !== 'free'),
+      );
+      if (visited.size === 0) {
+        adminClosures++;
+        continue;
+      }
+      realRuns++;
+      for (const state of prescribed) {
+        if (!visited.has(state)) {
+          skipCounts.set(state, (skipCounts.get(state) ?? 0) + 1);
+        }
+      }
+    }
+
+    const skipped =
+      realRuns === 0
+        ? []
+        : [...skipCounts.entries()]
+            .filter(([, count]) => count > 0)
+            .map(([state, count]) => ({
+              state,
+              skipCount: count,
+              skipRate: count / realRuns,
+            }))
+            .sort((a, b) => b.skipCount - a.skipCount || a.state.localeCompare(b.state));
+
+    rows.push({
+      pathway: pathwayName,
+      taskCount: realRuns,
+      adminClosures,
+      prescribedStates: prescribed,
+      skippedStates: skipped,
+    });
+  }
+
+  return rows.sort((a, b) => a.pathway.localeCompare(b.pathway));
+}
+
+/** Per-task detail row for deviation dig. */
+export interface PathwayDeviationDigRow {
+  taskId: string;
+  title: string;
+  status: string;
+  updated: string;
+  visitedStates: string[];
+  skippedStates: string[];
+  findingsTail: TaskFinding[];
+}
+
+/** How many trailing findings to include per task in the dig output. */
+export const DIG_FINDINGS_TAIL = 5;
+
+/**
+ * For one pathway, return the last WINDOW completed tasks' per-task deviation
+ * detail: which prescribed states they visited, which they skipped, and the
+ * last N findings as context. Purpose: turn skip-rate statistics into readable
+ * stories so the caller can classify cause-of-skip (pathway over-prescription
+ * vs. agent discipline vs. measurement artifact).
+ */
+export function digPathwayDeviations(pathwayName: string): PathwayDeviationDigRow[] {
+  const pathway = getPathway(pathwayName);
+  if (!pathway) return [];
+
+  const prescribed = pathway.sequence;
+  const prescribedSet = new Set(prescribed);
+
+  const completed = listTasks()
+    .filter((t) => t.status === 'completed' && t.pathway === pathwayName)
+    .sort((a, b) => b.updated.localeCompare(a.updated))
+    .slice(0, WINDOW);
+
+  return completed.map((t) => {
+    const visited = (t.state_history ?? [])
+      .map((e) => e.state)
+      .filter((s) => s !== 'base' && s !== 'free');
+    const visitedSet = new Set(visited);
+
+    const visitedStates = prescribed.filter((s) => visitedSet.has(s));
+    const skippedStates = prescribed.filter((s) => !visitedSet.has(s));
+
+    // Preserve the prescribed order in output, but also surface any out-of-sequence
+    // visits (states that were entered but aren't in the pathway's sequence).
+    const outOfSequence = visited.filter((s) => !prescribedSet.has(s));
+    if (outOfSequence.length > 0) {
+      visitedStates.push(...new Set(outOfSequence));
+    }
+
+    const findings = t.findings ?? [];
+    const findingsTail = findings.slice(-DIG_FINDINGS_TAIL);
+
+    return {
+      taskId: t.id,
+      title: t.title,
+      status: t.status,
+      updated: t.updated,
+      visitedStates,
+      skippedStates,
+      findingsTail,
+    };
+  });
 }

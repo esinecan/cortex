@@ -69,14 +69,22 @@ investigation:
   sequence: [debug, implement, validate, review]
   guidance:
     debug:
-      - 'Pick ONE representative case -- specific entity, request, or ID'
-      - 'Classify early: DATA issue, CONFIG gap, or CODE bug. Each has a different path.'
-      - 'Find a CONTROL CASE -- a similar entity where behavior is correct. Compare.'
-      - 'debug_hypothesis with confidence % before querying anything'
-      - 'Check logs via your observability platform (could be an external tool paired with cortex)'
-      - 'debug_db_query for database investigation'
-      - 'debug_distributed_trace for cross-service correlation'
-      - 'debug_root_cause when you have evidence'
+      l1:
+        - 'Pick ONE representative case -- specific entity, request, or ID'
+        - 'Classify early: DATA issue, CONFIG gap, or CODE bug. Each has a different path. Data corruption needs timeline reconstruction. Config gap needs comparative analysis. Code bug needs trace correlation.'
+        - 'Find a CONTROL CASE -- a similar entity where behavior is correct. Compare side-by-side before deep-diving the broken one. The differing field is usually the root cause.'
+        - 'debug_hypothesis with confidence % before querying anything'
+        - 'Check logs via your observability platform (could be an external tool paired with cortex). Scope every query to env (sandbox / staging / production). A platform that spans envs returns mixed results without scoping -- prod logs misread as sandbox is a 30-minute detour.'
+        - 'Include audit metadata (updatedAt/updatedBy or equivalent) in every database read. Live systems mutate while you investigate; without audit fields the mutation is invisible until query four.'
+        - 'When querying docs or a knowledge base, ask the NORMAL mechanism first ("how does X work"), then the recovery mechanism ("how to fix when X fails"). Recovery paths and default paths look alike in docs -- conflating them causes misdiagnosis.'
+        - 'debug_advance to L2 when hypothesis points at data or config'
+      l2:
+        - 'debug_db_query for database investigation. Include audit metadata in projections.'
+        - 'On long investigations (more than ~10 minutes on a live system), re-check audit metadata on key documents to detect external mutations under you.'
+        - 'debug_advance to L3 if the cause crosses services'
+      l3:
+        - 'debug_distributed_trace for cross-service correlation'
+        - 'debug_root_cause when you have evidence'
     implement:
       - 'Fix should be minimal and targeted -- address root cause only'
       - 'impl_test -- verify the fix, check for regressions'
@@ -91,10 +99,15 @@ investigation:
       - 'review_ready'
   exit_criteria:
     debug:
-      - 'Hypothesis recorded with confidence %'
-      - 'Issue classified: DATA issue, CONFIG gap, or CODE bug'
-      - 'Control case identified (a working instance of the same shape)'
-      - 'debug_root_cause recorded with evidence when hypothesis confirmed'
+      l1:
+        - 'Hypothesis recorded with confidence %'
+        - 'Issue classified: DATA issue, CONFIG gap, or CODE bug'
+        - 'Control case identified (a working instance of the same shape)'
+        - 'Observability queries scoped to env'
+      l2:
+        - 'Audit metadata checked on the broken-case document'
+      l3:
+        - 'debug_root_cause recorded with evidence when hypothesis confirmed'
     implement:
       - 'Fix is minimal and targeted at the recorded root cause'
       - 'impl_test green'
@@ -158,8 +171,8 @@ code_review:
       - 'PR metadata: author, description, labels, CI status'
       - 'Scope scan: count files and lines. Big PR = flag early.'
       - 'Ticket context: look up the issue in your tracker (could be an external tool paired with cortex)'
-      - 'Author context: how many commits has this person made in the changed files? First-timer or expert?'
-      - 'Parallel work: any other PRs touching the same files? Merge conflict risk.'
+      - 'Author context: how many commits has this person made in the changed files? First-timer or expert? Are there companion PRs by the same author touching adjacent code?'
+      - 'Parallel work: any other PRs touching the same files? Merge conflict risk. Flag before you waste review effort.'
       - 'File history: recent churn? Active refactor? Stable area touched for the first time?'
       - 'Branch freshness: how far behind main? Stale branch = likely conflicts post-approval.'
       - "CI: is the pipeline green? Don't review failing code unless failure is unrelated."
@@ -185,6 +198,7 @@ code_review:
         - 'Classify findings: blockers (must fix), suggestions (should fix), nits (nice to fix)'
         - 'Draft review with specific file:line references'
         - 'Verdict: approve / request-changes / comment-only'
+        - 'If request-changes: suggest solutions, not just problems. A finding without a path forward is review friction.'
   exit_criteria:
     recon:
       - 'PR scope understood: author, labels, CI status, file count'
@@ -260,84 +274,57 @@ diagnose:
   loop: true
   guidance:
     debug:
-      - 'Pick ONE representative case -- specific entity, request, or ID'
-      - 'Classify intent: DATA issue, CONFIG gap, CODE bug, or INFORMATIONAL (pure research/trace). Each routes to a different handoff.'
-      - 'Find a CONTROL CASE before deep-diving the broken one. Compare side-by-side.'
-      - 'debug_hypothesis with confidence % before querying anything'
-      - 'Check your observability platform first for logs. Scope by env if it spans multiple deployments.'
-      - 'debug_db_query for database investigation; include metadata (who/when last wrote) on key documents'
-      - 'insp_connect + insp_tools_call -- introspect live services via their MCP surface when a tool-level reproducer helps'
-      - 'debug_distributed_trace for cross-service correlation if applicable'
-      - "Ask the NORMAL mechanism first ('how does X work'), THEN the recovery mechanism. Docs describe both -- conflating them causes misdiagnosis."
-      - 'debug_root_cause when you have evidence; document the handoff path (who acts, where, by when)'
-      - 'Pathway check: if this starts leading to a code change, transition to investigation via a new task.'
+      l1:
+        - 'Pick ONE representative case -- specific entity, request, or ID'
+        - 'Classify intent: DATA issue, CONFIG gap, CODE bug, or INFORMATIONAL (pure research/trace). Each routes to a different handoff.'
+        - 'Find a CONTROL CASE before deep-diving the broken one. Compare side-by-side.'
+        - 'debug_hypothesis with confidence % before querying anything'
+        - 'Check your observability platform first for logs. Scope every query to env (sandbox / staging / production) -- platforms that span envs return mixed results without scoping.'
+        - 'Include audit metadata (updatedAt/updatedBy or equivalent) in every database read. Mutations during the investigation are invisible without it.'
+        - "Ask the NORMAL mechanism first ('how does X work'), THEN the recovery mechanism. Docs describe both -- conflating them causes misdiagnosis."
+        - 'debug_advance to L2 when hypothesis points at data or config'
+      l2:
+        - 'debug_db_query for database investigation; include audit metadata projections so mutations show on the first query.'
+        - 'insp_connect + insp_tools_call -- introspect live services via their MCP surface when a tool-level reproducer helps'
+        - 'On long diagnostics, re-query audit metadata periodically to catch external mutations under you.'
+        - 'debug_advance to L3 if cross-service correlation is needed'
+      l3:
+        - 'debug_distributed_trace for cross-service correlation if applicable'
+        - 'debug_root_cause when you have evidence; document the handoff path (who acts, where, by when)'
+        - 'Pathway check: if this starts leading to a code change, transition to investigation via a new task.'
   exit_criteria:
     debug:
-      - 'Hypothesis stated with confidence %'
-      - 'Classification recorded: DATA / CONFIG / CODE / INFORMATIONAL'
-      - 'Control case identified, or explicit note that none exists'
-      - 'Root cause confirmed with evidence array via debug_root_cause'
-      - 'Handoff path recorded: who acts, where, by when'
+      l1:
+        - 'Hypothesis stated with confidence %'
+        - 'Classification recorded: DATA / CONFIG / CODE / INFORMATIONAL'
+        - 'Control case identified, or explicit note that none exists'
+        - 'Observability queries scoped to env'
+      l2:
+        - 'Audit metadata checked on the broken-case document'
+      l3:
+        - 'Root cause confirmed with evidence array via debug_root_cause'
+        - 'Handoff path recorded: who acts, where, by when'
 
 coach:
-  description: 'Domain coaching: research deeply, test hands-on, then coach, quiz, and prep the user'
-  initial_state: recon
-  sequence: [recon, validate, free]
+  description: 'Active-recall coaching loop. Short single-concept sessions, top-3 pick entry, durable findings, cap-3 anti-overwhelm on revisits.'
+  initial_state: coach
+  sequence: [coach]
+  loop: true
   guidance:
-    recon:
-      - 'Search your documentation and knowledge base for the topic'
-      - 'Check your issue tracker for requirements, decisions, and acceptance criteria'
-      - 'Search team chat or wiki for discussions and tribal knowledge'
-      - 'Read source code end-to-end -- trace the actual implementation, not the docs'
-      - 'list_commits for how this area evolved and why'
-      - 'Exercise the domain in isolation if possible (dry-run, read-only query)'
-      - 'Build a knowledge map: core concepts, relationships, edge cases, gotchas'
-      - 'Identify common misconceptions and what makes this domain tricky'
-      - 'Prepare a teaching outline: what to cover, in what order, with what examples'
-      - 'recon_checkpoint: topic summary, outline, gotchas'
-    validate:
-      l1:
-        - 'validate_prerequisites -- the environment you would demo in is reachable'
-        - 'Skip to L2 -- L1 is just a gate here'
-      l2:
-        - 'Exercise the domain hands-on. Trace a real entity through the system.'
-        - 'Verify research findings match reality -- catch gaps between docs and code'
-        - 'Collect concrete examples with real identifiers for coaching'
-        - 'If UI-relevant -> validate_advance to L3'
-      l3:
-        - 'browser_navigate to the relevant UI and walk through the feature'
-        - 'browser_snapshot key screens that illustrate the concept'
-        - 'browser_take_screenshot for coaching reference material'
-    free:
-      - '--- COACH ---'
-      - 'Present findings structured: context first, then architecture, then implementation'
-      - 'Walk through concrete examples from your testing -- real entities, real data'
-      - "Highlight gotchas, tribal knowledge, things-that-look-right-but-aren't"
-      - 'Explain not just what but why -- design decisions, constraints, trade-offs'
-      - '--- QUIZ ---'
-      - "Start conceptual: 'what happens when X?', 'why does Y exist?'"
-      - "Escalate to scenario: 'a user reports Z -- where do you look first?'"
-      - 'Ask edge-case questions based on gotchas found in research'
-      - 'Do NOT reveal answers immediately -- let the user reason through'
-      - "Track strong vs weak areas from the user's responses"
-      - '--- FILL GAPS ---'
-      - 'Re-teach weak areas with different examples or deeper code walkthroughs'
-      - 'Provide the aha connections the user missed'
-      - 'Re-quiz previously weak areas to confirm understanding'
-      - 'Final checkpoint: what was covered, readiness level, remaining gaps'
+    coach:
+      - 'First move: coach_resume. Single call. Surfaces top-3 open revisits + most recent parked thread. User picks 1, 2, 3, parked, or a new concept name.'
+      - 'Default cadence: short single-concept sessions. Long-form research is opt-in via enter_state("recon"), validation hands-on via enter_state("validate").'
+      - 'Question style rotation: concept | scenario | debug | predict | teach_back | simulate_call. Pick one each round; never repeat last round.'
+      - 'coach_quiz to record: concept, question, user answer, Bloom level (1-6), style, assessment (strong / partial / weak).'
+      - 'Adaptive jump: assessment=strong -> next question one Bloom level up + different style. partial -> teach_back on same concept. weak -> coach_gap then coach_revisit, move on.'
+      - 'coach_gap when user articulates something fuzzy. Capture user_said vs correct + gap_type (mental_model | terminology | edge_case | why | connection). Re-explain with a different concrete example.'
+      - 'coach_revisit to queue weak concepts. No date, no interval. Cap-3 enforcement is in coach_resume -- older entries stay in audit trail but never become a backlog cliff.'
+      - 'coach_thread_park the moment user pivots. Park, follow the new thread, return next session.'
+      - 'When deep-research is genuinely required (foundation missing, multiple concepts entangled): enter_state("recon") for one focused excursion, recon_checkpoint with a one-paragraph summary, return to coach. Do not stay in recon.'
+      - 'When hands-on exercise required: enter_state("validate") L2 to trace one real entity. Capture concrete example as a finding, return to coach.'
+      - 'When user curious about a cross-domain connection: enter_state("free") for one short wander. Set a timer.'
+      - 'End-of-session: optional one-line teaser of next concept (not enforced).'
   exit_criteria:
-    recon:
-      - 'Domain researched across docs, issue tracker, source, and history'
-      - 'Teaching outline drafted with concrete examples and identified gotchas'
-    validate:
-      l1:
-        - 'Environment reachable (prerequisite check green)'
-      l2:
-        - 'Hands-on exercise of the domain completed with real identifiers'
-        - 'Research findings cross-checked against reality; gaps logged'
-      l3:
-        - 'Relevant UI flows captured via browser screenshots'
-    free:
-      - 'Coaching delivered: concepts -> examples -> gotchas -> why'
-      - 'Quiz completed with tracked strong/weak areas'
-      - 'Gap-fill round done; final readiness checkpoint saved'
+    coach:
+      - 'At least one coach_quiz round recorded this session'
+      - 'If any assessment was weak/partial: a coach_gap and coach_revisit pair exists for it'

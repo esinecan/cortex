@@ -5,10 +5,13 @@ import { updateTask } from '../tasks.js';
 import { respond } from '../respond.js';
 
 /**
- * Debug tools: hypothesis tracking, log guidance, database query guidance,
- * distributed tracing, and root cause recording. Flat (no levels).
+ * Debug tools across three progressive levels:
+ * L1 -- hypothesis tracking, log guidance, and level advancement,
+ * L2 -- database query guidance,
+ * L3 -- distributed tracing and root cause recording.
  */
 export function registerDebugTools(server: McpServer, state: StateManager): void {
+  // -- Level 1: Hypothesis and logs --
   const hypothesisHandle = server.registerTool(
     'debug_hypothesis',
     {
@@ -81,6 +84,31 @@ export function registerDebugTools(server: McpServer, state: StateManager): void
   );
   state.registerTool('debug_log_check', 'debug', logCheckHandle);
 
+  const advanceHandle = server.registerTool(
+    'debug_advance',
+    {
+      description:
+        'Advance to the next debug level. L1->L2 adds database investigation. L2->L3 adds distributed tracing and root-cause recording.',
+    },
+    async () => {
+      const result = state.advanceLevel();
+      if (result.error) return respond(state, result.error);
+
+      const levelDescriptions: Record<number, string> = {
+        2: 'Level 2: Database investigation enabled. Use `debug_db_query` for data state checks.',
+        3: 'Level 3: Cross-service tracing enabled. Use `debug_distributed_trace` and finalize with `debug_root_cause`.',
+      };
+
+      return respond(
+        state,
+        `Advanced to debug ${levelDescriptions[result.level!] || `level ${result.level}`}`,
+      );
+    },
+  );
+  state.registerTool('debug_advance', 'debug', advanceHandle);
+
+  // -- Level 2: Database investigation --
+
   const dbQueryHandle = server.registerTool(
     'debug_db_query',
     {
@@ -113,6 +141,8 @@ export function registerDebugTools(server: McpServer, state: StateManager): void
     },
   );
   state.registerTool('debug_db_query', 'debug', dbQueryHandle);
+
+  // -- Level 3: Distributed tracing and root cause --
 
   const traceHandle = server.registerTool(
     'debug_distributed_trace',

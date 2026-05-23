@@ -1,4 +1,5 @@
 import type { RegisteredTool } from '@modelcontextprotocol/sdk/server/mcp.js';
+import type { ZodRawShape } from 'zod';
 
 // -- Task types --
 
@@ -161,6 +162,15 @@ export interface CortexToolEntry {
   name: string;
   state: string;
   handle: RegisteredTool;
+  /**
+   * Captured at registration so the dispatcher (cortex_call / cortex_describe)
+   * can reach tools that a listChanged-blind client never surfaces in
+   * tools/list. Optional because the base registerTool signature does not
+   * require it; the setServer interceptor fills it from def.description /
+   * def.inputSchema automatically.
+   */
+  description?: string;
+  schema?: ZodRawShape;
 }
 
 export type CortexToolRegistry = Map<string, CortexToolEntry>;

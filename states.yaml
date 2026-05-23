@@ -42,20 +42,36 @@ implement:
     - 'Checkpoint regularly'
 
 debug:
-  description: 'Debugging. Form hypotheses, check logs, query databases, trace across services.'
-  tools:
-    - debug_hypothesis
-    - debug_log_check
-    - debug_db_query
-    - debug_distributed_trace
-    - debug_root_cause
-  external_guidance:
-    use: [read, grep, glob]
-    avoid: [edit, write]
-  constraints:
-    - 'Form hypotheses before querying'
-    - 'Your observability platform aggregates across services -- use it first (could be an external tool paired with cortex)'
-    - 'Trace correlation IDs across services'
+  description: 'Progressive debugging. Start with hypothesis + logs, escalate to database, then cross-service tracing.'
+  levels:
+    1:
+      tools:
+        - debug_hypothesis
+        - debug_log_check
+        - debug_advance
+      external_guidance:
+        use: [read, grep, glob]
+        avoid: [edit, write]
+      constraints:
+        - 'Form hypotheses before querying'
+        - 'Your observability platform aggregates across services -- use it first (could be an external tool paired with cortex)'
+        - 'Scope every observability query to the environment under investigation. A platform that spans sandbox/staging/production returns mixed results without an env filter.'
+        - 'Include audit metadata (updatedAt/updatedBy or equivalent) in every database read so document mutations during the investigation are visible on the first query, not the fourth.'
+    2:
+      inherits: 1
+      additional_tools:
+        - debug_db_query
+      constraints:
+        - 'Use entity map for database navigation (could be an external tool paired with cortex)'
+        - 'On long investigations, re-check audit metadata periodically -- live systems mutate while you investigate.'
+    3:
+      inherits: 2
+      additional_tools:
+        - debug_distributed_trace
+        - debug_root_cause
+      constraints:
+        - 'Trace correlation IDs across services'
+        - 'Record root cause with evidence array via debug_root_cause'
 
 validate:
   description: 'Verify changes work. Progressive: local gates, flow checks, browser E2E.'
@@ -121,3 +137,23 @@ free:
     use: [all]
     avoid: []
   constraints: []
+
+coach:
+  description: 'Active-recall coaching loop. Lean surface, durable findings, cap-3 on revisits so re-entry is always cheap.'
+  tools:
+    - coach_resume
+    - coach_quiz
+    - coach_gap
+    - coach_revisit
+    - coach_thread_park
+  external_guidance:
+    use: [read]
+    avoid: [edit, write, bash_destructive]
+  constraints:
+    - 'First move every session: coach_resume. Single-call entry, top-3 pick.'
+    - 'Default cadence: short single-concept sessions. Long-form research is opt-in via enter_state("recon").'
+    - 'Rotate question style across rounds (concept / scenario / debug / predict / teach_back / simulate_call). Repeating the same stem twice = drift trigger.'
+    - 'Adaptive jump: if assessment=strong, next question is one Bloom level up with a different style. No grinding.'
+    - 'If user pivots mid-session, coach_thread_park first, then follow.'
+    - 'Cap-3 on revisits is enforced by coach_resume. Older entries stay in the audit trail but never become a backlog cliff.'
+    - 'No streaks, no scores. Bloom level + assessment is enough signal.'

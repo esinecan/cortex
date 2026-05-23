@@ -297,6 +297,7 @@ export function registerAlwaysOnTools(server: McpServer, state: StateManager): v
             'review',
             'browse',
             'free',
+            'coach',
           ])
           .describe('Target state'),
         task_id: z.string().optional().describe('Associate with a persistent task'),

@@ -213,6 +213,30 @@ describe('StateManager', () => {
       expect(result.notFound).toHaveLength(0);
     });
 
+    it('auto-allows curated proxied tools when base state is current', () => {
+      // Regression test for the impossible-error bug: a curated tool from
+      // mcp-servers.yaml registered with discovery_state=debug must be
+      // callable inside the debug state without being listed in states.yaml.
+      const mockHandle = {
+        enabled: true,
+        handler: async () => ({ content: [{ type: 'text', text: 'ok' }] }),
+        enable: function () {
+          this.enabled = true;
+        },
+        disable: function () {
+          this.enabled = false;
+        },
+      };
+      state.registerTool('insp_connect', 'debug:curated', mockHandle as any);
+      // Base state: gated off
+      expect(state.enableTools(['insp_connect']).enabled).toBe(0);
+      // Debug state: auto-allowed via the proxied-suffix rule
+      state.enterState('debug');
+      const result = state.enableTools(['insp_connect']);
+      expect(result.enabled).toBe(1);
+      expect(result.notFound).toHaveLength(0);
+    });
+
     it('reports not found for unknown tools', () => {
       const result = state.enableTools(['nonexistent']);
       expect(result.notFound).toEqual(['nonexistent']);

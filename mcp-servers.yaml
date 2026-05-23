@@ -4,6 +4,8 @@
 # Variables: $HOME (user home), $PROJECT_ROOT (cortex install dir)
 # Vendored servers use 'entry' (relative to $PROJECT_ROOT), always launched via node.
 # External servers use 'command' + 'args'.
+# External servers can pull env vars from ~/.claude.json via `env_from_claude: <server-name>`
+# (e.g. brave-search uses this for BRAVE_API_KEY without putting it in this file).
 #
 # To add your own server:
 #   1. Add an entry below (external or vendored)

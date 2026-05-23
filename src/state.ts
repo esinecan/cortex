@@ -148,14 +148,16 @@ export class StateManager {
 
     if (current === 'free') return true;
 
-    // The `:discoverable` suffix marks proxied tools that are auto-allowed
-    // whenever their base state is active (regardless of the level's tool
-    // list). Native tools register with a bare state name and must appear
-    // explicitly in the resolved state's tool list — so level-narrowing
-    // continues to work for leveled states like triage L1 → L2 → L3.
+    // Any suffix on the registered state (`:curated` or `:discoverable`)
+    // marks a proxied tool that is auto-allowed whenever its base state is
+    // active. The two suffixes carry the same gating behavior; they differ
+    // only in how cortex_discover groups them. Native tools register with a
+    // bare state name and must appear explicitly in the resolved state's
+    // tool list, so level-narrowing keeps working for leveled states like
+    // validate L1 -> L2 -> L3.
     const baseState = entry.state.split(':')[0];
-    const isDiscoverable = entry.state !== baseState;
-    return activeTools.has(toolName) || (isDiscoverable && baseState === current);
+    const isProxied = entry.state !== baseState;
+    return activeTools.has(toolName) || (isProxied && baseState === current);
   }
 
   /**

@@ -168,7 +168,7 @@ export async function proxyMcpServer(
       },
     );
 
-    const assignedState = isCurated ? config.state : `${config.state}:discoverable`;
+    const assignedState = isCurated ? `${config.state}:curated` : `${config.state}:discoverable`;
     stateManager.registerTool(toolName, assignedState, handle);
 
     // Leave enabled at registration. enterState() in index.ts will apply

@@ -14,7 +14,6 @@ export interface McpServerEntry {
   args: string[];
   state: string;
   curatedTools?: string[];
-  required?: boolean;
   env?: Record<string, string>;
 }
 
@@ -23,7 +22,6 @@ interface RawExternalEntry {
   args: (string | number)[];
   discovery_state: string;
   curated_tools: string[];
-  required?: boolean;
   env?: Record<string, string>;
   env_from_claude?: string;
 }
@@ -32,7 +30,6 @@ interface RawVendoredEntry {
   entry: string;
   discovery_state: string;
   curated_tools: string[];
-  required?: boolean;
   env?: Record<string, string>;
   env_from_claude?: string;
 }
@@ -89,7 +86,6 @@ export function loadMcpServers(projectRoot: string): McpServerEntry[] {
         args: resolvedArgs,
         state: cfg.discovery_state,
         curatedTools: cfg.curated_tools,
-        required: cfg.required,
         ...(Object.keys(env).length > 0 ? { env } : {}),
       });
     }
@@ -106,7 +102,6 @@ export function loadMcpServers(projectRoot: string): McpServerEntry[] {
         args: [entryPath],
         state: cfg.discovery_state,
         curatedTools: cfg.curated_tools,
-        required: cfg.required,
         ...(Object.keys(env).length > 0 ? { env } : {}),
       });
     }

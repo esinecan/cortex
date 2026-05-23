@@ -287,18 +287,7 @@ export function registerAlwaysOnTools(server: McpServer, state: StateManager): v
         'Transition to a workflow state. Tools for that state become available; other state tools disappear.',
       inputSchema: {
         state: z
-          .enum([
-            'base',
-            'recon',
-            'plan',
-            'implement',
-            'debug',
-            'validate',
-            'review',
-            'browse',
-            'free',
-            'coach',
-          ])
+          .enum(getStateNames() as [string, ...string[]])
           .describe('Target state'),
         task_id: z.string().optional().describe('Associate with a persistent task'),
         level: z

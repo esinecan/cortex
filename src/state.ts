@@ -1,4 +1,5 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import type { ZodRawShape } from 'zod';
 import type {
   CortexState,
   CortexToolEntry,
@@ -26,6 +27,14 @@ export class StateManager {
   private freeExploreEnteredAt: string | null = null;
   private toolCallCount: number = 0;
   private loopWarningEmitted: boolean = false;
+  /**
+   * Populated by the setServer interceptor: every server.registerTool call
+   * stashes its description + inputSchema here, keyed by tool name. The
+   * subsequent state.registerTool call shallow-merges this captured meta
+   * with any explicit meta, so the dispatcher (cortex_call / cortex_describe)
+   * can surface schemas without touching native call sites.
+   */
+  private capturedMeta: Map<string, { description?: string; schema?: ZodRawShape }> = new Map();
 
   constructor() {
     const saved = loadState();
@@ -39,9 +48,30 @@ export class StateManager {
     };
   }
 
-  /** Wire up the MCP server so we can send toolListChanged notifications. */
+  /**
+   * Wire up the MCP server, and intercept registerTool so every tool's
+   * description + inputSchema is captured for the dispatcher.
+   *
+   * The dispatcher (cortex_call / cortex_describe) needs the schema to
+   * describe tools and the description to render rich output. We capture at
+   * registration time so we don't have to thread meta through ~50 native
+   * call sites.
+   */
   setServer(server: McpServer): void {
     this.server = server;
+    const original = server.registerTool.bind(server);
+    (server as any).registerTool = (
+      name: string,
+      def: { description?: string; inputSchema?: ZodRawShape; [k: string]: unknown },
+      handler: any,
+    ) => {
+      const handle = (original as any)(name, def, handler);
+      this.capturedMeta.set(name, {
+        description: def?.description,
+        schema: def?.inputSchema,
+      });
+      return handle;
+    };
   }
 
   /**
@@ -56,7 +86,12 @@ export class StateManager {
    * caused Claude Code to report every state change as "MCP server disconnected"
    * for all tools that vanished from tools/list.
    */
-  registerTool(name: string, state: string, handle: CortexToolEntry['handle']): void {
+  registerTool(
+    name: string,
+    state: string,
+    handle: CortexToolEntry['handle'],
+    meta?: { description?: string; schema?: ZodRawShape },
+  ): void {
     const originalHandler = (handle as any).handler as (args: any, extra: any) => any;
     (handle as any).handler = async (args: any, extra: any) => {
       if (!this.isToolAllowed(name)) {
@@ -76,7 +111,18 @@ export class StateManager {
       }
       return originalHandler(args, extra);
     };
-    this.registry.set(name, { name, state, handle });
+    // Shallow-merge: captured meta (from the setServer interceptor) supplies
+    // defaults; explicit meta overrides field-by-field. Without the merge,
+    // passing meta with only `description` would silently drop the captured
+    // schema.
+    const captured = this.capturedMeta.get(name) ?? {};
+    const finalMeta = { ...captured, ...(meta ?? {}) };
+    this.registry.set(name, { name, state, handle, ...finalMeta });
+  }
+
+  /** Lookup used by the dispatcher (cortex_call / cortex_describe). */
+  getRegistryEntry(name: string): CortexToolEntry | undefined {
+    return this.registry.get(name);
   }
 
   /**

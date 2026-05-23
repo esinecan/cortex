@@ -15,10 +15,12 @@ import { registerDebugTools } from './tools/debug.js';
 import { registerReviewTools } from './tools/review.js';
 import { registerBrowseTools } from './tools/browse.js';
 import { registerValidateTools } from './tools/validate.js';
+import { registerCoachTools } from './tools/coach.js';
 import { registerPathwayTools } from './tools/pathway.js';
 import { registerThinkTools } from './tools/think.js';
 import { loadMcpServers } from './config.js';
-import { proxyMcpServer, disconnectAll } from './proxy.js';
+import { proxyMcpServer, disconnectAll, getAllProxiedServers } from './proxy.js';
+import { registerDispatcher } from './dispatcher.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = join(__dirname, '..');
@@ -47,11 +49,39 @@ async function main(): Promise<void> {
   registerReviewTools(server, state);
   registerBrowseTools(server, state);
   registerValidateTools(server, state);
+  registerCoachTools(server, state);
   registerPathwayTools(server, state);
   registerThinkTools(server, state);
 
   // Stage 4b: Proxy external MCP servers
   await proxyExternalServers(server, state);
+
+  // Stage 4c: Optional dispatcher mode for clients that ignore listChanged.
+  // CORTEX_DISPATCHER_MODE=proxied:
+  //   - Register cortex_call + cortex_describe (always-on umbrellas).
+  //   - Disable the SDK handles for every proxied tool BEFORE server.connect,
+  //     so they are born-disabled and never appear in the connect-time
+  //     tools/list snapshot. This avoids the "MCP server disconnected" toast
+  //     that vanishing tools trigger on clients that snapshot at connect.
+  //   - Native tools stay visible so the LLM still drives the state machine.
+  // Default (off): no dispatcher, no disables, byte-for-byte today's behavior.
+  const dispatcherMode = process.env.CORTEX_DISPATCHER_MODE ?? 'off';
+  if (dispatcherMode === 'proxied') {
+    registerDispatcher(server, state);
+    let suppressed = 0;
+    for (const { toolNames } of getAllProxiedServers().values()) {
+      for (const name of toolNames) {
+        const entry = state.getRegistryEntry(name);
+        if (entry) {
+          entry.handle.disable();
+          suppressed++;
+        }
+      }
+    }
+    process.stderr.write(
+      `[cortex] Dispatcher mode: ${suppressed} proxied tools hidden behind cortex_call/cortex_describe.\n`,
+    );
+  }
 
   // Stage 5: Apply initial tool visibility based on saved state.
   // applyToolVisibility enables tools by matching: states.yaml tool list

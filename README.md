@@ -57,6 +57,9 @@ At any moment, the agent is in one **state** (chapter). Each state exposes a spe
 | `review`    | Mirror        | Simulate reviewers, run checklists, prep PR          |
 | `browse`    | Library       | Focused web research with Playwright                 |
 | `free`      | Wildcard      | Escape hatch -- all tools, no constraints            |
+| `coach`     | Mentor        | Active-recall coaching loop with durable findings    |
+
+States can also suggest process skills: each state's `skill_suggestions` in `states.yaml` names slash-command skills worth invoking in that phase. Out of the box the workflow states point at the [superpowers](https://github.com/obra/superpowers) process skills (brainstorming in recon, test-driven-development in implement, systematic-debugging in debug, and so on) -- swap in your own.
 
 ### Pathways (Storylines)
 
@@ -71,6 +74,8 @@ Pathways are named sequences of states with step-by-step guidance at each stage:
 | `code_review`   | recon → review                               | Reviewing someone's PR      |
 | `free_roam`     | free                                         | Open-ended work             |
 | `introspect`    | recon → plan → implement → validate          | Self-audit of cortex itself |
+| `diagnose`      | debug                                        | Root-cause only, no fix -- document and hand off |
+| `coach`         | coach                                        | Active-recall domain coaching sessions |
 
 ### Persistent Tasks
 
@@ -167,6 +172,8 @@ Cortex ships with these integrations:
 | Brave Search | recon     | Web search and summarization                        |
 | GitHub       | recon     | Repository exploration, PR reading, code search     |
 | Commands     | implement | Shell command execution                             |
+| Inspector    | debug     | Connect to and probe other MCP servers              |
+| isession     | free      | Persistent PTY sessions: drive interactive CLIs     |
 
 ---
 

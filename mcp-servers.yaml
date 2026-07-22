@@ -30,7 +30,7 @@ external:
         -y,
         '@playwright/mcp@latest',
         --user-data-dir,
-        '$HOME/Playwright-MCP-Profile',
+        '$HOME/Playwright-MCP-Cortex-Profile',
         --viewport-size,
         '1920x1080',
       ]

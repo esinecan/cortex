@@ -1,8 +1,47 @@
 import { z } from 'zod';
+import { existsSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { StateManager } from '../state.js';
 import { updateTask } from '../tasks.js';
 import { success } from '../respond.js';
+
+/**
+ * Auto-detect prerequisite checks from a project directory. Universal checks
+ * always apply; project checks are added when package.json scripts or a git
+ * worktree are present. Used by validate_prerequisites when no checks are passed.
+ */
+export function defaultChecks(cwd: string): Array<{ name: string; check: string; fix: string }> {
+  const checks = [{ name: 'Node version', check: 'node -v', fix: 'nvm use <version>' }];
+  const pkgPath = join(cwd, 'package.json');
+  if (existsSync(pkgPath)) {
+    try {
+      const pkg = JSON.parse(readFileSync(pkgPath, 'utf-8')) as {
+        scripts?: Record<string, string>;
+      };
+      if (pkg.scripts?.test) {
+        checks.push({
+          name: 'Test suite',
+          check: 'npm test',
+          fix: 'fix failing tests before validating',
+        });
+      }
+      if (pkg.scripts?.build) {
+        checks.push({ name: 'Build', check: 'npm run build', fix: 'fix compile errors' });
+      }
+    } catch {
+      /* unreadable package.json: skip project checks */
+    }
+  }
+  if (existsSync(join(cwd, '.git'))) {
+    checks.push({
+      name: 'Clean git worktree',
+      check: 'git status --porcelain | head -5',
+      fix: 'commit or stash pending changes',
+    });
+  }
+  return checks;
+}
 
 /**
  * Validate tools across three progressive levels:
@@ -69,25 +108,24 @@ export function registerValidateTools(server: McpServer, state: StateManager): v
         return success(lines.join('\n'));
       }
 
-      // No checks provided -- return template
-      return success(
-        [
-          '## Prerequisites Check',
-          '',
-          'No checks configured. Pass `checks` parameter with your environment requirements, or create a config file.',
-          '',
-          '### Template',
-          '```json',
-          '[',
-          '  { "name": "Node version", "check": "node -v", "fix": "nvm use <version>" },',
-          '  { "name": "Dev server", "check": "lsof -i :<port> -sTCP:LISTEN && echo UP || echo DOWN", "fix": "npm run dev" },',
-          '  { "name": "Database", "check": "pg_isready -h localhost", "fix": "docker-compose up -d postgres" }',
-          ']',
-          '```',
-          '',
-          'Pass this array as the `checks` parameter to validate_prerequisites.',
-        ].join('\n'),
+      // No checks provided -- auto-detect from the current project
+      const detected = defaultChecks(process.cwd());
+      const detectedLines = [
+        `## Prerequisites Check (auto-detected, ${detected.length} items)`,
+        '',
+        'No checks configured; these were detected from the project. Pass `checks` to override.',
+        '',
+        '| Component | Check | Fix if failing |',
+        '|-----------|-------|----------------|',
+      ];
+      for (const c of detected) {
+        detectedLines.push(`| ${c.name} | \`${c.check}\` | \`${c.fix}\` |`);
+      }
+      detectedLines.push(
+        '',
+        'Run the checks via `run_command`, then `validate_advance` when ready for L2.',
       );
+      return success(detectedLines.join('\n'));
     },
   );
   state.registerTool('validate_prerequisites', 'validate', prerequisitesHandle);

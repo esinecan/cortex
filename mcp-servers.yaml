@@ -97,3 +97,15 @@ vendored:
       - insp_resources_list
       - insp_resources_read
       - insp_resources_templates
+
+  isession:
+    entry: servers/isession/build/index.js
+    discovery_state: free
+    curated_tools:
+      - isession_open
+      - isession_send
+      - isession_read
+      - isession_wait
+      - isession_signal
+      - isession_close
+      - isession_list

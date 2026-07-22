@@ -18,6 +18,7 @@ recon:
     - 'Do NOT edit code files -- this is understanding phase'
     - 'Prefer reads first. Write (tickets, comments, pages) when needed.'
     - 'Save all findings via recon_checkpoint'
+  skill_suggestions: [superpowers:brainstorming]
 
 plan:
   description: 'Structured planning. Produce a plan, validate it, get approval.'
@@ -27,6 +28,7 @@ plan:
     avoid: [edit, write]
   constraints:
     - 'Do NOT edit files until plan is approved'
+  skill_suggestions: [superpowers:writing-plans]
 
 implement:
   description: 'Active coding. Write code, run tests, checkpoint progress.'
@@ -40,6 +42,7 @@ implement:
   constraints:
     - 'Run tests after changes'
     - 'Checkpoint regularly'
+  skill_suggestions: [superpowers:test-driven-development]
 
 debug:
   description: 'Progressive debugging. Start with hypothesis + logs, escalate to database, then cross-service tracing.'
@@ -72,6 +75,7 @@ debug:
       constraints:
         - 'Trace correlation IDs across services'
         - 'Record root cause with evidence array via debug_root_cause'
+  skill_suggestions: [superpowers:systematic-debugging]
 
 validate:
   description: 'Verify changes work. Progressive: local gates, flow checks, browser E2E.'
@@ -102,6 +106,7 @@ validate:
       constraints:
         - 'browser_snapshot before every interaction'
         - 'Take screenshots as verification evidence'
+  skill_suggestions: [superpowers:verification-before-completion]
 
 review:
   description: 'Self-review and PR preparation.'
@@ -117,6 +122,7 @@ review:
     - 'Simulate relevant reviewer archetypes with review_simulate'
     - 'Run review_checklist before marking ready'
     - 'Use GitHub PR tools to check for parallel open PRs in the same area'
+  skill_suggestions: [superpowers:requesting-code-review]
 
 browse:
   description: 'Focus state. Browser automation with Playwright tools.'

@@ -65,17 +65,17 @@ States can also suggest process skills: each state's `skill_suggestions` in `sta
 
 Pathways are named sequences of states with step-by-step guidance at each stage:
 
-| Pathway         | Flow                                         | When to Use                 |
-| --------------- | -------------------------------------------- | --------------------------- |
-| `golden`        | recon → plan → implement → validate → review | Feature development         |
-| `investigation` | debug → implement → validate → review        | Bug fixing                  |
-| `knowledge`     | recon                                        | Quick domain questions      |
-| `e2e_verify`    | validate (L1→L2→L3)                          | Standalone E2E verification |
-| `code_review`   | recon → review                               | Reviewing someone's PR      |
-| `free_roam`     | free                                         | Open-ended work             |
-| `introspect`    | recon → plan → implement → validate          | Self-audit of cortex itself |
+| Pathway         | Flow                                         | When to Use                                      |
+| --------------- | -------------------------------------------- | ------------------------------------------------ |
+| `golden`        | recon → plan → implement → validate → review | Feature development                              |
+| `investigation` | debug → implement → validate → review        | Bug fixing                                       |
+| `knowledge`     | recon                                        | Quick domain questions                           |
+| `e2e_verify`    | validate (L1→L2→L3)                          | Standalone E2E verification                      |
+| `code_review`   | recon → review                               | Reviewing someone's PR                           |
+| `free_roam`     | free                                         | Open-ended work                                  |
+| `introspect`    | recon → plan → implement → validate          | Self-audit of cortex itself                      |
 | `diagnose`      | debug                                        | Root-cause only, no fix -- document and hand off |
-| `coach`         | coach                                        | Active-recall domain coaching sessions |
+| `coach`         | coach                                        | Active-recall domain coaching sessions           |
 
 ### Persistent Tasks
 

@@ -23,33 +23,58 @@ const configCache = loadConfig();
 
 function readState() {
   const p = join(TASKS_DIR, '_state.json');
-  if (!existsSync(p)) return { current_state: 'base', current_level: null, active_task: null, previous_state: null, session_started: new Date().toISOString() };
+  if (!existsSync(p))
+    return {
+      current_state: 'base',
+      current_level: null,
+      active_task: null,
+      previous_state: null,
+      session_started: new Date().toISOString(),
+    };
   return JSON.parse(readFileSync(p, 'utf8'));
 }
 
 function readTasks() {
   if (!existsSync(TASKS_DIR)) return [];
-  const files = readdirSync(TASKS_DIR).filter(f => f.startsWith('task-') && f.endsWith('.json'));
-  return files.map(f => {
-    try { return JSON.parse(readFileSync(join(TASKS_DIR, f), 'utf8')); }
-    catch { return null; }
-  }).filter(Boolean);
+  const files = readdirSync(TASKS_DIR).filter((f) => f.startsWith('task-') && f.endsWith('.json'));
+  return files
+    .map((f) => {
+      try {
+        return JSON.parse(readFileSync(join(TASKS_DIR, f), 'utf8'));
+      } catch {
+        return null;
+      }
+    })
+    .filter(Boolean);
 }
 
 function readLog() {
   const p = join(TASKS_DIR, '_free_explore_log.jsonl');
   if (!existsSync(p)) return [];
   const lines = readFileSync(p, 'utf8').trim().split('\n').filter(Boolean);
-  return lines.map(l => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean);
+  return lines
+    .map((l) => {
+      try {
+        return JSON.parse(l);
+      } catch {
+        return null;
+      }
+    })
+    .filter(Boolean);
 }
 
 function parseBody(req) {
   return new Promise((resolve, reject) => {
     let data = '';
-    req.on('data', chunk => { data += chunk; });
+    req.on('data', (chunk) => {
+      data += chunk;
+    });
     req.on('end', () => {
-      try { resolve(data ? JSON.parse(data) : {}); }
-      catch (e) { reject(e); }
+      try {
+        resolve(data ? JSON.parse(data) : {});
+      } catch (e) {
+        reject(e);
+      }
     });
     req.on('error', reject);
   });
@@ -61,15 +86,24 @@ async function handleApi(req, url, res) {
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
-  if (req.method === 'OPTIONS') { res.statusCode = 204; return res.end(); }
+  if (req.method === 'OPTIONS') {
+    res.statusCode = 204;
+    return res.end();
+  }
 
   if (req.method === 'GET') {
     switch (url) {
-      case '/api/state': return res.end(JSON.stringify(readState()));
-      case '/api/tasks': return res.end(JSON.stringify(readTasks()));
-      case '/api/config': return res.end(JSON.stringify(configCache));
-      case '/api/log': return res.end(JSON.stringify(readLog()));
-      default: res.statusCode = 404; return res.end('{}');
+      case '/api/state':
+        return res.end(JSON.stringify(readState()));
+      case '/api/tasks':
+        return res.end(JSON.stringify(readTasks()));
+      case '/api/config':
+        return res.end(JSON.stringify(configCache));
+      case '/api/log':
+        return res.end(JSON.stringify(readLog()));
+      default:
+        res.statusCode = 404;
+        return res.end('{}');
     }
   }
 
@@ -77,24 +111,35 @@ async function handleApi(req, url, res) {
     try {
       const body = await parseBody(req);
       if (url === '/api/write-task') {
-        if (!body.id || !body.task) { res.statusCode = 400; return res.end(JSON.stringify({ error: 'id and task required' })); }
+        if (!body.id || !body.task) {
+          res.statusCode = 400;
+          return res.end(JSON.stringify({ error: 'id and task required' }));
+        }
         if (!existsSync(TASKS_DIR)) mkdirSync(TASKS_DIR, { recursive: true });
         writeFileSync(join(TASKS_DIR, `task-${body.id}.json`), JSON.stringify(body.task, null, 2));
         return res.end(JSON.stringify({ ok: true }));
       }
       if (url === '/api/delete-task') {
-        if (!body.id) { res.statusCode = 400; return res.end(JSON.stringify({ error: 'id required' })); }
+        if (!body.id) {
+          res.statusCode = 400;
+          return res.end(JSON.stringify({ error: 'id required' }));
+        }
         const p = join(TASKS_DIR, `task-${body.id}.json`);
-        if (!existsSync(p)) { res.statusCode = 404; return res.end(JSON.stringify({ error: 'not found' })); }
+        if (!existsSync(p)) {
+          res.statusCode = 404;
+          return res.end(JSON.stringify({ error: 'not found' }));
+        }
         unlinkSync(p);
         return res.end(JSON.stringify({ ok: true }));
       }
     } catch (e) {
-      res.statusCode = 400; return res.end(JSON.stringify({ error: 'invalid JSON' }));
+      res.statusCode = 400;
+      return res.end(JSON.stringify({ error: 'invalid JSON' }));
     }
   }
 
-  res.statusCode = 404; return res.end('{}');
+  res.statusCode = 404;
+  return res.end('{}');
 }
 
 // --- HTML ---

@@ -73,11 +73,9 @@ describe('cortex dispatcher', () => {
     const state = new StateManager();
     const server = makeServer(state);
     state.enterState('recon');
-    const handle = server.registerTool(
-      'debug_only',
-      { description: 'debug only' },
-      async () => ({ content: [{ type: 'text', text: 'ran' }] }),
-    );
+    const handle = server.registerTool('debug_only', { description: 'debug only' }, async () => ({
+      content: [{ type: 'text', text: 'ran' }],
+    }));
     state.registerTool('debug_only', 'debug', handle);
     registerDispatcher(server, state);
 
@@ -151,11 +149,9 @@ describe('cortex dispatcher', () => {
   it('emits the no-schema fallback for a no-arg tool', async () => {
     const state = new StateManager();
     const server = makeServer(state);
-    const handle = server.registerTool(
-      'demo_noarg2',
-      { description: 'no arg' },
-      async () => ({ content: [{ type: 'text', text: 'ok' }] }),
-    );
+    const handle = server.registerTool('demo_noarg2', { description: 'no arg' }, async () => ({
+      content: [{ type: 'text', text: 'ok' }],
+    }));
     state.registerTool('demo_noarg2', 'always-on', handle);
     registerDispatcher(server, state);
 

@@ -48,9 +48,7 @@ export function registerDispatcher(server: McpServer, state: StateManager): void
         "They're still registered server-side; cortex_call reaches them.",
       ].join(' '),
       inputSchema: {
-        tool_name: z
-          .string()
-          .describe('Exact registered tool name. Names are case-sensitive.'),
+        tool_name: z.string().describe('Exact registered tool name. Names are case-sensitive.'),
         args: z
           .preprocess(
             (val) => (typeof val === 'string' ? JSON.parse(val) : val),

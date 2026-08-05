@@ -38,8 +38,8 @@ class ThinkSession {
   private readonly history: Thought[] = [];
   private readonly branches: Record<string, Thought[]> = {};
   private readonly silent =
-    (process.env.CORTEX_THINK_SILENT || process.env.DISABLE_THOUGHT_LOGGING || '')
-      .toLowerCase() === 'true';
+    (process.env.CORTEX_THINK_SILENT || process.env.DISABLE_THOUGHT_LOGGING || '').toLowerCase() ===
+    'true';
 
   record(input: Thought): {
     thoughtNumber: number;
@@ -130,18 +130,28 @@ export function registerThinkTools(server: McpServer, state: StateManager): void
         nextThoughtNeeded: coercedBoolean.describe(
           'True if you need another thought after this one. Set false only when you have an answer.',
         ),
-        thoughtNumber: z
-          .coerce.number().int().min(1)
+        thoughtNumber: z.coerce
+          .number()
+          .int()
+          .min(1)
           .describe('1-based index of this thought in the chain.'),
-        totalThoughts: z
-          .coerce.number().int().min(1)
+        totalThoughts: z.coerce
+          .number()
+          .int()
+          .min(1)
           .describe('Current estimate of how many thoughts you will need. Adjustable.'),
         isRevision: coercedBoolean.optional().describe('True if this revises an earlier thought.'),
-        revisesThought: z
-          .coerce.number().int().min(1).optional()
+        revisesThought: z.coerce
+          .number()
+          .int()
+          .min(1)
+          .optional()
           .describe('When isRevision=true, which earlier thought number is being revised.'),
-        branchFromThought: z
-          .coerce.number().int().min(1).optional()
+        branchFromThought: z.coerce
+          .number()
+          .int()
+          .min(1)
+          .optional()
           .describe('When branching, the thought number this branch starts from.'),
         branchId: z.string().optional().describe('Identifier for the branch you are exploring.'),
         needsMoreThoughts: coercedBoolean

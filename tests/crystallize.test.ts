@@ -51,7 +51,10 @@ function writeTask(dir: string, partial: Partial<PersistentTask>): PersistentTas
  * and a companion exit marker on exitFreeExplore. We only seed the enters here
  * because that's the event correlateEscapes is designed to count.
  */
-function writeEscape(dir: string, entry: Partial<FreeExploreEntry> & { from_state: string; task_id: string }): void {
+function writeEscape(
+  dir: string,
+  entry: Partial<FreeExploreEntry> & { from_state: string; task_id: string },
+): void {
   const full: FreeExploreEntry = {
     timestamp: entry.timestamp ?? new Date().toISOString(),
     from_state: entry.from_state,
@@ -371,10 +374,7 @@ describe('crystallize', () => {
         writeTask(tmpDir, { id: `i${i}`, pathway: 'investigation', status: 'completed' });
       }
       const result = collectRecurring();
-      expect(result.map((r) => r.signature)).toEqual([
-        'static:investigation',
-        'static:golden',
-      ]);
+      expect(result.map((r) => r.signature)).toEqual(['static:investigation', 'static:golden']);
       expect(result[0].tasks.length).toBe(5);
       expect(result[1].tasks.length).toBe(3);
     });
@@ -400,10 +400,7 @@ describe('crystallize', () => {
 
   describe('correlateEscapes()', () => {
     it('returns null when no escape meets HOTSPOT_MIN_TASKS', () => {
-      const tasks = [
-        writeTask(tmpDir, { id: 'a' }),
-        writeTask(tmpDir, { id: 'b' }),
-      ];
+      const tasks = [writeTask(tmpDir, { id: 'a' }), writeTask(tmpDir, { id: 'b' })];
       // single-task escape below threshold
       writeEscape(tmpDir, { from_state: 'debug', task_id: 'a' });
       expect(correlateEscapes(tasks)).toBeNull();
@@ -437,8 +434,20 @@ describe('crystallize', () => {
     it('accepts injected entries for test isolation', () => {
       const tasks = [writeTask(tmpDir, { id: 'a' }), writeTask(tmpDir, { id: 'b' })];
       const entries: FreeExploreEntry[] = [
-        { timestamp: '', from_state: 'implement', reason: null, task_id: 'a', duration_seconds: null },
-        { timestamp: '', from_state: 'implement', reason: null, task_id: 'b', duration_seconds: null },
+        {
+          timestamp: '',
+          from_state: 'implement',
+          reason: null,
+          task_id: 'a',
+          duration_seconds: null,
+        },
+        {
+          timestamp: '',
+          from_state: 'implement',
+          reason: null,
+          task_id: 'b',
+          duration_seconds: null,
+        },
       ];
       const h = correlateEscapes(tasks, entries);
       expect(h?.state).toBe('implement');

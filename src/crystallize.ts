@@ -86,7 +86,10 @@ export function signature(task: PersistentTask): string | null {
   }
 
   if (task.generated_pathway) {
-    const labels = task.generated_pathway.steps.map((s) => s.label).slice().sort();
+    const labels = task.generated_pathway.steps
+      .map((s) => s.label)
+      .slice()
+      .sort();
     if (labels.length === 0) return null;
     const digest = createHash('sha1').update(labels.join('|')).digest('hex').slice(0, 12);
     return `generated:${digest}`;

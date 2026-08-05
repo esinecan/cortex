@@ -286,9 +286,7 @@ export function registerAlwaysOnTools(server: McpServer, state: StateManager): v
       description:
         'Transition to a workflow state. Tools for that state become available; other state tools disappear.',
       inputSchema: {
-        state: z
-          .enum(getStateNames() as [string, ...string[]])
-          .describe('Target state'),
+        state: z.enum(getStateNames() as [string, ...string[]]).describe('Target state'),
         task_id: z.string().optional().describe('Associate with a persistent task'),
         level: z
           .preprocess(
@@ -741,7 +739,9 @@ export function registerAlwaysOnTools(server: McpServer, state: StateManager): v
         }
         const lines: string[] = [`# Signature: ${args.signature}`, ''];
         for (const { state: stateName, findings } of groups) {
-          lines.push(`## ${stateName} (${findings.length} unique finding${findings.length === 1 ? '' : 's'})`);
+          lines.push(
+            `## ${stateName} (${findings.length} unique finding${findings.length === 1 ? '' : 's'})`,
+          );
           for (const f of findings) {
             lines.push(`- [${f.task_id}] "${f.content.slice(0, 200)}"`);
           }
@@ -752,9 +752,7 @@ export function registerAlwaysOnTools(server: McpServer, state: StateManager): v
 
       const recurring = collectRecurring();
       if (recurring.length === 0) {
-        return success(
-          'No recurring patterns yet (need 3+ completions sharing a signature).',
-        );
+        return success('No recurring patterns yet (need 3+ completions sharing a signature).');
       }
 
       const lines: string[] = ['# Crystallization Candidates', ''];
@@ -820,7 +818,9 @@ export function registerAlwaysOnTools(server: McpServer, state: StateManager): v
         pathway: z
           .string()
           .optional()
-          .describe('Optional. Return per-task dig detail for this pathway instead of the aggregate.'),
+          .describe(
+            'Optional. Return per-task dig detail for this pathway instead of the aggregate.',
+          ),
       },
     },
     async (args) => {
@@ -840,7 +840,9 @@ export function registerAlwaysOnTools(server: McpServer, state: StateManager): v
         for (const r of rows) {
           lines.push(`## ${r.taskId} -- ${r.title}`);
           lines.push(`Updated: ${r.updated}`);
-          lines.push(`Visited: ${r.visitedStates.length ? r.visitedStates.join(' -> ') : '(none)'}`);
+          lines.push(
+            `Visited: ${r.visitedStates.length ? r.visitedStates.join(' -> ') : '(none)'}`,
+          );
           lines.push(`Skipped: ${r.skippedStates.length ? r.skippedStates.join(', ') : '(none)'}`);
           if (r.findingsTail.length === 0) {
             lines.push('Findings: (none)');

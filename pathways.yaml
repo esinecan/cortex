@@ -268,7 +268,7 @@ introspect:
       - 'Inspector round-trip confirms the change took effect'
 
 diagnose:
-  description: "Diagnostic-only: find and document root cause, then hand off. No code change in this pathway -- use investigation for bug hunts that need a fix."
+  description: 'Diagnostic-only: find and document root cause, then hand off. No code change in this pathway -- use investigation for bug hunts that need a fix.'
   initial_state: debug
   sequence: [debug]
   loop: true

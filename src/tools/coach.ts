@@ -87,30 +87,22 @@ export function registerCoachTools(server: McpServer, state: StateManager): void
 
       if (threads.length > 0) {
         lines.push('**Parked thread:**');
-        lines.push(
-          `parked) ${stripTag(threads[0].content)} _(${daysSince(threads[0].ts)}d ago)_`,
-        );
+        lines.push(`parked) ${stripTag(threads[0].content)} _(${daysSince(threads[0].ts)}d ago)_`);
         lines.push('');
       }
 
       if (revisits.length === 0 && threads.length === 0) {
         lines.push('**No prior weak areas on this task.**');
-        lines.push(
-          'Pick a concept tied to the task or recent work. Cheaper than open-ended.',
-        );
+        lines.push('Pick a concept tied to the task or recent work. Cheaper than open-ended.');
         lines.push('');
       }
 
       if (lastQuiz) {
-        lines.push(
-          `_Last quiz: ${daysSince(lastQuiz.ts)}d ago. Vary question style this round._`,
-        );
+        lines.push(`_Last quiz: ${daysSince(lastQuiz.ts)}d ago. Vary question style this round._`);
         lines.push('');
       }
 
-      lines.push(
-        '**Reply with:** `1` | `2` | `3` | `parked` | new concept name | `done` to skip',
-      );
+      lines.push('**Reply with:** `1` | `2` | `3` | `parked` | new concept name | `done` to skip');
       lines.push('');
       lines.push(
         '**Then:** `coach_quiz(...)` for active recall, or `enter_state("recon")` for a deeper research excursion.',
@@ -133,11 +125,9 @@ export function registerCoachTools(server: McpServer, state: StateManager): void
       inputSchema: {
         concept: z.string().describe('The concept being tested (short noun phrase).'),
         question: z.string().describe('The question asked.'),
-        user_answer: z
-          .string()
-          .describe("The user's response, captured verbatim or summarized."),
-        bloom_level: z
-          .coerce.number()
+        user_answer: z.string().describe("The user's response, captured verbatim or summarized."),
+        bloom_level: z.coerce
+          .number()
           .int()
           .min(1)
           .max(6)
@@ -181,9 +171,7 @@ export function registerCoachTools(server: McpServer, state: StateManager): void
         'Record a Feynman-style gap. Capture what the user said vs. what is correct, then classify the gap type so future quizzes can target the underlying mechanism, not just the surface answer. After saving, propose a re-explanation with a different concrete example.',
       inputSchema: {
         concept: z.string().describe('Concept being clarified.'),
-        user_said: z
-          .string()
-          .describe('What the user articulated (verbatim or summarized).'),
+        user_said: z.string().describe('What the user articulated (verbatim or summarized).'),
         correct: z.string().describe('What is actually correct, with a concrete example.'),
         gap_type: z
           .enum(['mental_model', 'terminology', 'edge_case', 'why', 'connection'])

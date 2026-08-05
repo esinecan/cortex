@@ -328,3 +328,22 @@ coach:
     coach:
       - 'At least one coach_quiz round recorded this session'
       - 'If any assessment was weak/partial: a coach_gap and coach_revisit pair exists for it'
+
+telemetry_review:
+  description: 'Monthly harness telemetry rollup. Runs headless via Task Scheduler; pushes digest to the forum + a one-line subconscious inject. Driven by ~/dev/harness-telemetry.'
+  initial_state: free
+  sequence: [free]
+  loop: true
+  guidance:
+    free:
+      - 'Run: python ~/dev/harness-telemetry/aggregator.py  (produces JSON digests + sanitized YYYY-MM.md)'
+      - 'Auto-classify untagged cortex tasks (pathway + tool-set); list drift.'
+      - 'Pair mcp-cost resource snapshot with tool-call counts; list IDLE-EXPENSIVE + zero-call servers as clutter.'
+      - 'Read ~/.cortex/_free_explore_log.jsonl (full escape list every 3rd run / quarterly depth).'
+      - 'PUSH: post the digest to the forum (subject-line delivery) AND inject the one-line headline via subconscious inject. Use CRUCIAL INFORMATION FOR EREN: opener only if an instrument is dark.'
+      - 'Sanitize, then commit YYYY-MM.md to ~/dev/harness-telemetry.'
+      - "task_update(status='completed')."
+  exit_criteria:
+    free:
+      - 'check.py exits 0 over the fresh digests'
+      - 'forum post exists for the month + digests/YYYY-MM.md committed with a current timestamp'

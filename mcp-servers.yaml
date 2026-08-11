@@ -45,13 +45,21 @@ external:
       - browser_wait_for
       - browser_tabs
 
+  # Search fallback, not the default. Demoted on the 07.08.2026 three-channel bakeoff:
+  # google-search reached ~25 productive domains to Brave's ~13, and Brave rate-limits at
+  # 4-wide parallel batches. Reach for this when google-search returns rate_limited.
+  #
+  # google-search is not proxied here on purpose. It is an http server (one shared
+  # instance, because the Chromium profile it drives is exclusive) and proxyMcpServer only
+  # speaks StdioClientTransport. Spawning it stdio-per-client would be the exact
+  # monopolisation the shared server exists to avoid. It is always-on via ~/.claude.json,
+  # so it is reachable as mcp__google-search__* regardless of state.
   brave-search:
     command: npx
     args: [-y, '@brave/brave-search-mcp-server']
     discovery_state: recon
     curated_tools:
       - brave_web_search
-      - brave_summarizer
     env:
       BRAVE_API_KEY: ''
     env_from_claude: brave-search

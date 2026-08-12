@@ -173,7 +173,7 @@ Cortex ships with these integrations:
 | GitHub       | recon     | Repository exploration, PR reading, code search     |
 | Commands     | implement | Shell command execution                             |
 | Inspector    | debug     | Connect to and probe other MCP servers              |
-| isession     | free      | Persistent PTY sessions: drive interactive CLIs     |
+| isession     | free      | Persistent PTY sessions via the shared isession daemon (url entry, not spawned) |
 
 ---
 

@@ -18,6 +18,14 @@ needs to interact with it during a workflow state, wrap it and plug it in.
 The MCP spec is thin: expose tools with JSON Schema inputs, return text/image
 content. That's it. The cortex side is one YAML entry.
 
+Three entry kinds: `command` + `args` spawns a stdio server per cortex process,
+`entry` does the same for a server vendored in this repo, and `url` connects to
+an already-running Streamable HTTP daemon without spawning anything -- use that
+for servers whose state must outlive cortex (the isession PTY daemon is the
+resident example) or that can only run as one shared instance. Optional
+`tool_prefix` prefixes remote tool names on registration, for daemons that
+list bare names.
+
 ## Example bridges
 
 ### Observability (debug state)

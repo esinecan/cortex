@@ -1,11 +1,12 @@
 /**
- * MCP proxy infrastructure. Launches external MCP servers as child processes,
- * converts their JSON Schema tool definitions to Zod, and registers them on the
- * cortex server with state-based visibility gating.
+ * MCP proxy infrastructure. Launches external MCP servers as child processes
+ * (or connects to already-running HTTP daemons via 'url'), converts their JSON
+ * Schema tool definitions to Zod, and registers them on the cortex server with
+ * state-based visibility gating.
  * @module
  */
 import { z } from 'zod';
-import { Client } from '@modelcontextprotocol/client';
+import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client';
 import { StdioClientTransport } from '@modelcontextprotocol/client/stdio';
 import type { McpServer } from '@modelcontextprotocol/server';
 import type { StateManager } from './state.js';
@@ -13,14 +14,16 @@ import type { StateManager } from './state.js';
 interface ProxiedServer {
   name: string;
   client: Client;
-  transport: StdioClientTransport;
+  transport: StdioClientTransport | StreamableHTTPClientTransport;
   toolNames: string[];
 }
 
 interface ProxyConfig {
   name: string;
-  command: string;
-  args: string[];
+  command?: string;
+  args?: string[];
+  url?: string;
+  toolPrefix?: string;
   state: string;
   curatedTools?: string[];
   env?: Record<string, string>;
@@ -111,11 +114,17 @@ export async function proxyMcpServer(
   stateManager: StateManager,
   config: ProxyConfig,
 ): Promise<{ total: number; curated: number }> {
-  const transport = new StdioClientTransport({
-    command: config.command,
-    args: config.args,
-    env: { ...process.env, ...(config.env || {}) } as Record<string, string>,
-  });
+  let transport: StdioClientTransport | StreamableHTTPClientTransport;
+  if (config.url) {
+    transport = new StreamableHTTPClientTransport(new URL(config.url));
+  } else {
+    if (!config.command) throw new Error(`server '${config.name}' has neither command nor url`);
+    transport = new StdioClientTransport({
+      command: config.command,
+      args: config.args || [],
+      env: { ...process.env, ...(config.env || {}) } as Record<string, string>,
+    });
+  }
 
   const client = new Client({ name: `cortex-proxy-${config.name}`, version: '0.1.0' });
   await client.connect(transport);
@@ -136,7 +145,15 @@ export async function proxyMcpServer(
   const toolNames: string[] = [];
 
   for (const tool of remoteTools) {
-    const toolName = tool.name;
+    // Daemons behind a name-prefixing client (e.g. isession's HTTP server) list
+    // bare tool names; restore the prefix locally so registered names stay
+    // unambiguous (isession_open, not open). The remote is still called with
+    // the name it advertised.
+    const remoteName = tool.name;
+    const toolName =
+      config.toolPrefix && !remoteName.startsWith(config.toolPrefix)
+        ? config.toolPrefix + remoteName
+        : remoteName;
     const isCurated = !curatedSet || curatedSet.has(toolName);
     const zodShape = jsonSchemaToZodShape(tool.inputSchema as Record<string, unknown>);
     const hasParams = Object.keys(zodShape).length > 0;
@@ -150,7 +167,7 @@ export async function proxyMcpServer(
       async (args: Record<string, unknown>) => {
         const loopStatus = stateManager.recordToolCall(toolName);
         const result = await client.callTool({
-          name: toolName,
+          name: remoteName,
           arguments: args,
         });
         if (
@@ -184,9 +201,7 @@ export async function proxyMcpServer(
     toolNames,
   });
 
-  const curated = curatedSet
-    ? remoteTools.filter((t) => curatedSet.has(t.name)).length
-    : remoteTools.length;
+  const curated = curatedSet ? toolNames.filter((n) => curatedSet.has(n)).length : toolNames.length;
   return { total: remoteTools.length, curated };
 }
 

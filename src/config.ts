@@ -10,16 +10,24 @@ import { parse as parseYaml } from 'yaml';
 
 export interface McpServerEntry {
   name: string;
-  command: string;
-  args: string[];
+  /** stdio servers: program to spawn. Absent for url servers. */
+  command?: string;
+  args?: string[];
+  /** HTTP servers: Streamable HTTP endpoint of an already-running daemon. */
+  url?: string;
+  /** Prefix added to remote tool names when registering locally (the remote
+   *  is still called with its own name). For daemons that list bare names. */
+  toolPrefix?: string;
   state: string;
   curatedTools?: string[];
   env?: Record<string, string>;
 }
 
 interface RawExternalEntry {
-  command: string;
-  args: (string | number)[];
+  command?: string;
+  args?: (string | number)[];
+  url?: string;
+  tool_prefix?: string;
   discovery_state: string;
   curated_tools: string[];
   env?: Record<string, string>;
@@ -77,13 +85,30 @@ export function loadMcpServers(projectRoot: string): McpServerEntry[] {
 
   if (raw.external) {
     for (const [name, cfg] of Object.entries(raw.external)) {
-      const resolvedArgs = cfg.args.map((a) => substituteVars(String(a), projectRoot));
       const env = resolveEnv(cfg.env, cfg.env_from_claude);
+
+      if (cfg.url) {
+        // Already-running HTTP daemon (e.g. isession): connect, don't spawn.
+        configs.push({
+          name,
+          url: substituteVars(cfg.url, projectRoot),
+          ...(cfg.tool_prefix ? { toolPrefix: cfg.tool_prefix } : {}),
+          state: cfg.discovery_state,
+          curatedTools: cfg.curated_tools,
+          ...(Object.keys(env).length > 0 ? { env } : {}),
+        });
+        continue;
+      }
+      if (!cfg.command) {
+        throw new Error(`mcp-servers.yaml: external server '${name}' needs 'command' or 'url'`);
+      }
+      const resolvedArgs = (cfg.args || []).map((a) => substituteVars(String(a), projectRoot));
 
       configs.push({
         name,
         command: cfg.command,
         args: resolvedArgs,
+        ...(cfg.tool_prefix ? { toolPrefix: cfg.tool_prefix } : {}),
         state: cfg.discovery_state,
         curatedTools: cfg.curated_tools,
         ...(Object.keys(env).length > 0 ? { env } : {}),

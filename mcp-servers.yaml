@@ -3,7 +3,10 @@
 #
 # Variables: $HOME (user home), $PROJECT_ROOT (cortex install dir)
 # Vendored servers use 'entry' (relative to $PROJECT_ROOT), always launched via node.
-# External servers use 'command' + 'args'.
+# External servers use 'command' + 'args' (spawned stdio child), OR 'url' (Streamable
+# HTTP endpoint of an already-running daemon -- nothing is spawned; sessions/state live
+# in the daemon and survive cortex restarts). 'tool_prefix' (optional, either kind)
+# prefixes remote tool names on registration for daemons that list bare names.
 # External servers can pull env vars from ~/.claude.json via `env_from_claude: <server-name>`
 # (e.g. brave-search uses this for BRAVE_API_KEY without putting it in this file).
 #
@@ -49,11 +52,9 @@ external:
   # google-search reached ~25 productive domains to Brave's ~13, and Brave rate-limits at
   # 4-wide parallel batches. Reach for this when google-search returns rate_limited.
   #
-  # google-search is not proxied here on purpose. It is an http server (one shared
-  # instance, because the Chromium profile it drives is exclusive) and proxyMcpServer only
-  # speaks StdioClientTransport. Spawning it stdio-per-client would be the exact
-  # monopolisation the shared server exists to avoid. It is always-on via ~/.claude.json,
-  # so it is reachable as mcp__google-search__* regardless of state.
+  # google-search is not proxied here on purpose. It is always-on via ~/.claude.json, so
+  # it is reachable as mcp__google-search__* regardless of state; proxying it here (now
+  # possible with a 'url' entry) would only duplicate that surface.
   brave-search:
     command: npx
     args: [-y, '@brave/brave-search-mcp-server']
@@ -63,6 +64,27 @@ external:
     env:
       BRAVE_API_KEY: ''
     env_from_claude: brave-search
+
+  # The shared isession daemon (~/rig/isession, http_server.py on :8765) -- interactive
+  # PTY sessions held OUTSIDE cortex, so they survive cortex restarts and live in one
+  # namespace with Claude Code and pi (a session opened here is visible to the wake tick).
+  # The daemon lists bare tool names (open, send, ...); tool_prefix restores isession_*.
+  # events drains the readiness mailbox; open(no_wake=true) keeps a session you are
+  # actively driving out of it. If the daemon is down, cortex logs one line and starts
+  # without these tools (non-fatal).
+  isession:
+    url: http://127.0.0.1:8765/mcp
+    tool_prefix: isession_
+    discovery_state: free
+    curated_tools:
+      - isession_open
+      - isession_send
+      - isession_read
+      - isession_wait
+      - isession_signal
+      - isession_close
+      - isession_list
+      - isession_events
 
 vendored:
   github:
@@ -105,15 +127,3 @@ vendored:
       - insp_resources_list
       - insp_resources_read
       - insp_resources_templates
-
-  isession:
-    entry: servers/isession/build/index.js
-    discovery_state: free
-    curated_tools:
-      - isession_open
-      - isession_send
-      - isession_read
-      - isession_wait
-      - isession_signal
-      - isession_close
-      - isession_list

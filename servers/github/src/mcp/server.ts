@@ -6,12 +6,8 @@
  * Uses stdio transport for communication with MCP clients.
  */
 
-import { Server } from "@modelcontextprotocol/sdk/server/index.js";
-import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import {
-  CallToolRequestSchema,
-  ListToolsRequestSchema,
-} from "@modelcontextprotocol/sdk/types.js";
+import { Server } from "@modelcontextprotocol/server";
+import { StdioServerTransport } from "@modelcontextprotocol/server/stdio";
 import { TOOLS, handleToolCall } from "../tools/index.js";
 import { checkGhCli } from "../core/executor.js";
 import { pruneResponse } from "../core/pruner.js";
@@ -40,12 +36,14 @@ async function main() {
   );
 
   // List available tools
-  server.setRequestHandler(ListToolsRequestSchema, async () => ({
+  // v2: the low-level `Server` registers spec handlers by method string.
+  // The v1 zod request-schema objects (ListToolsRequestSchema etc.) are gone.
+  server.setRequestHandler("tools/list", async () => ({
     tools: TOOLS,
   }));
 
   // Handle tool calls
-  server.setRequestHandler(CallToolRequestSchema, async (request) => {
+  server.setRequestHandler("tools/call", async (request) => {
     const { name, arguments: args } = request.params;
     const toolArgs = (args ?? {}) as Record<string, unknown>;
     const compact = toolArgs.compact !== false; // default: true

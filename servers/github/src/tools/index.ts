@@ -2,7 +2,7 @@
  * Tool definitions and handler dispatch for gh-mcp
  */
 
-import { Tool } from "@modelcontextprotocol/sdk/types.js";
+import { Tool } from "@modelcontextprotocol/server";
 import * as commits from "./commits.js";
 import * as files from "./files.js";
 import * as user from "./user.js";

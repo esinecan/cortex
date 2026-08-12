@@ -17,8 +17,7 @@
  * @module
  */
 import { z } from 'zod';
-import { zodToJsonSchema } from 'zod-to-json-schema';
-import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import type { McpServer } from '@modelcontextprotocol/server';
 import type { StateManager } from './state.js';
 
 export function registerDispatcher(server: McpServer, state: StateManager): void {
@@ -52,7 +51,7 @@ export function registerDispatcher(server: McpServer, state: StateManager): void
         args: z
           .preprocess(
             (val) => (typeof val === 'string' ? JSON.parse(val) : val),
-            z.record(z.unknown()).optional(),
+            z.record(z.string(), z.unknown()).optional(),
           )
           .describe('Arguments to pass to the tool. Defaults to {} if omitted.'),
       },
@@ -124,7 +123,7 @@ export function registerDispatcher(server: McpServer, state: StateManager): void
       const callability = allowed ? 'callable now' : 'gated off in current state';
       let schemaBlock: string;
       if (entry.schema && Object.keys(entry.schema).length > 0) {
-        const json = zodToJsonSchema(z.object(entry.schema), { target: 'jsonSchema7' });
+        const json = z.toJSONSchema(z.object(entry.schema));
         schemaBlock = '```json\n' + JSON.stringify(json, null, 2) + '\n```';
       } else {
         schemaBlock =

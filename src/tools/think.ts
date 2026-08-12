@@ -14,7 +14,7 @@
  * cortex state machine -- it shouldn't be hidden by gating.
  */
 import { z } from 'zod';
-import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import type { McpServer } from '@modelcontextprotocol/server';
 import type { StateManager } from '../state.js';
 
 interface Thought {

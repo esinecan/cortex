@@ -3,7 +3,7 @@ import { readFileSync, existsSync } from 'node:fs';
 import { execSync } from 'node:child_process';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import type { McpServer } from '@modelcontextprotocol/server';
 import type { StateManager } from '../state.js';
 import { updateTask } from '../tasks.js';
 import { respond, success } from '../respond.js';

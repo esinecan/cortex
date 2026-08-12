@@ -1,4 +1,4 @@
-import type { RegisteredTool } from '@modelcontextprotocol/sdk/server/mcp.js';
+import type { RegisteredTool } from '@modelcontextprotocol/server';
 import type { ZodRawShape } from 'zod';
 
 // -- Task types --

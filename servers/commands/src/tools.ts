@@ -1,15 +1,12 @@
 import os from "os";
-import {
-    CallToolRequestSchema,
-    CallToolResult,
-    ListToolsRequestSchema,
-} from "@modelcontextprotocol/sdk/types.js";
+import { CallToolResult, Server } from "@modelcontextprotocol/server";
 import { verbose_log } from "./always_log.js";
 import { runCommand } from "./run-command.js";
-import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 
 export function reisterTools(server: Server) {
-    server.setRequestHandler(ListToolsRequestSchema, async () => {
+    // v2: the low-level `Server` registers spec handlers by method string.
+    // The v1 zod request-schema objects (ListToolsRequestSchema etc.) are gone.
+    server.setRequestHandler("tools/list", async () => {
         verbose_log("INFO: ListTools");
         return {
             tools: [
@@ -49,7 +46,7 @@ export function reisterTools(server: Server) {
     });
 
     server.setRequestHandler(
-        CallToolRequestSchema,
+        "tools/call",
         async (request): Promise<CallToolResult> => {
             verbose_log("INFO: ToolRequest", request);
             switch (request.params.name) {

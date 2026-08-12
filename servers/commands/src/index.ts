@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 
 import os from "os";
-import { Server } from "@modelcontextprotocol/sdk/server/index.js";
-import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { Server } from "@modelcontextprotocol/server";
+import { StdioServerTransport } from "@modelcontextprotocol/server/stdio";
 
 import { createRequire } from "module";
 import { registerPrompts } from "./prompts.js";

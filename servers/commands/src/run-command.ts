@@ -1,9 +1,9 @@
 import { exec, ExecOptions } from "node:child_process";
 import { promisify } from "node:util";
-import { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
+import { CallToolResult } from "@modelcontextprotocol/server";
 import { execFileWithInput, ExecResult } from "./exec-utils.js";
 import { always_log } from "./always_log.js";
-import { messagesFor } from "./messages.js";
+import { LabeledTextContent, messagesFor } from "./messages.js";
 import { ObjectEncodingOptions } from "node:fs";
 
 const execAsync = promisify(exec);
@@ -20,10 +20,21 @@ async function execute(command: string, stdin: string, options: ExecOptions) {
 }
 
 /**
+ * v2 types CallToolResult.content as a discriminated union of content blocks,
+ * so callers can no longer read .text off an element without narrowing, and
+ * .name is not on it at all. This server only ever emits labelled text, so it
+ * says so: the result stays assignable to CallToolResult while the integration
+ * tests keep reading .text and .name directly.
+ */
+export type RunCommandResult = Omit<CallToolResult, "content"> & {
+    content: LabeledTextContent[];
+};
+
+/**
  * Executes a command and returns the result as CallToolResult.
  */
 export type RunCommandArgs = Record<string, unknown> | undefined;
-export async function runCommand(args: RunCommandArgs): Promise<CallToolResult> {
+export async function runCommand(args: RunCommandArgs): Promise<RunCommandResult> {
 
     const command = args?.command as string;
     if (!command) {

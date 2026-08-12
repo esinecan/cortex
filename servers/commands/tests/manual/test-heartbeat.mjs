@@ -2,8 +2,8 @@
 // Manual test: verify progress heartbeat notifications during long-running commands
 // Usage: node tests/manual/test-heartbeat.mjs
 
-import { Client } from "@modelcontextprotocol/sdk/client/index.js";
-import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
+import { Client } from "@modelcontextprotocol/client";
+import { StdioClientTransport } from "@modelcontextprotocol/client/stdio";
 
 const transport = new StdioClientTransport({
     command: "node",
@@ -23,9 +23,10 @@ const progressTicks = [];
 console.log("Calling run_command with sleep 25 (should get heartbeat at ~20s)...");
 const start = Date.now();
 
+// v2: callTool takes (params, options). The v1 middle `resultSchema` argument
+// was removed, so the old 3-arg form no longer applies.
 const result = await client.callTool(
     { name: "run_command", arguments: { command: "sleep 25 && echo done" } },
-    undefined,
     {
         onprogress: (progress) => {
             const elapsed = ((Date.now() - start) / 1000).toFixed(1);

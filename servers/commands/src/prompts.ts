@@ -1,9 +1,4 @@
-import { Server } from "@modelcontextprotocol/sdk/server/index.js";
-import {
-    GetPromptRequestSchema,
-    ListPromptsRequestSchema,
-    PromptMessage,
-} from "@modelcontextprotocol/sdk/types.js";
+import { PromptMessage, Server } from "@modelcontextprotocol/server";
 import { verbose_log } from "./always_log.js";
 
 import { exec } from "node:child_process";
@@ -12,7 +7,9 @@ const execAsync = promisify(exec);
 // TODO use .promises? in node api
 
 export function registerPrompts(server: Server) {
-    server.setRequestHandler(ListPromptsRequestSchema, async () => {
+    // v2: the low-level `Server` registers spec handlers by method string.
+    // The v1 zod request-schema objects (ListPromptsRequestSchema etc.) are gone.
+    server.setRequestHandler("prompts/list", async () => {
         verbose_log("INFO: ListPrompts");
         return {
             prompts: [
@@ -45,7 +42,7 @@ export function registerPrompts(server: Server) {
         };
     });
 
-    server.setRequestHandler(GetPromptRequestSchema, async (request) => {
+    server.setRequestHandler("prompts/get", async (request) => {
         // if (request.params.name == "examples") {
         //     return GetExamplePromptMessages();
         // } else

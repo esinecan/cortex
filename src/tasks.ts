@@ -8,11 +8,11 @@ import { randomUUID } from 'node:crypto';
 import type { PersistentTask, TaskStatus, TaskFinding, GeneratedPathway } from './types.js';
 import { loadTask, saveTask, listTasks } from './storage.js';
 
-const MAX_ACTIVE_ROOT_TASKS = 3;
+export const MAX_ACTIVE_ROOT_TASKS = 7;
 const FINDINGS_PAGE_SIZE = 50;
 
 /**
- * Create a new persistent task. Enforces a max of 3 active root tasks.
+ * Create a new persistent task. Enforces a max of 7 active root tasks.
  * @param pathway - Optional pathway name to get guided workflow steps.
  * @returns The created task, or an error if the limit is hit or a parent is missing.
  */

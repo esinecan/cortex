@@ -3,7 +3,14 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { setTasksDir } from '../src/storage.js';
-import { createTask, updateTask, getTask, getTaskContext, listAllTasks } from '../src/tasks.js';
+import {
+  createTask,
+  updateTask,
+  getTask,
+  getTaskContext,
+  listAllTasks,
+  MAX_ACTIVE_ROOT_TASKS,
+} from '../src/tasks.js';
 
 describe('Task System', () => {
   let tmpDir: string;
@@ -28,18 +35,15 @@ describe('Task System', () => {
       expect(result.task!.id).toHaveLength(8);
     });
 
-    it('enforces max 3 active root tasks', () => {
-      createTask('Task 1', '');
-      createTask('Task 2', '');
-      createTask('Task 3', '');
-      const result = createTask('Task 4', '');
-      expect(result.error).toContain('Max 3 active root tasks');
+    it('enforces the active root task limit', () => {
+      for (let i = 0; i < MAX_ACTIVE_ROOT_TASKS; i++) createTask(`Task ${i + 1}`, '');
+      const result = createTask('One too many', '');
+      expect(result.error).toContain(`Max ${MAX_ACTIVE_ROOT_TASKS} active root tasks`);
     });
 
     it('allows subtasks beyond root limit', () => {
       const parent = createTask('Parent', '');
-      createTask('Task 2', '');
-      createTask('Task 3', '');
+      for (let i = 1; i < MAX_ACTIVE_ROOT_TASKS; i++) createTask(`Task ${i + 1}`, '');
       const sub = createTask('Subtask', '', parent.task!.id);
       expect(sub.error).toBeUndefined();
       expect(sub.task).toBeDefined();

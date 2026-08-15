@@ -114,6 +114,11 @@ vendored:
   inspector:
     entry: servers/inspector/dist/server.js
     discovery_state: debug
+    # The standalone ~/.claude.json registration owns the default steering port
+    # (9847, the mcp-steer CLI default); without this the second instance to
+    # start loses steering to EADDRINUSE with only a stderr warning.
+    env:
+      INSPECTOR_STEERING_PORT: '9848'
     curated_tools:
       - insp_connect
       - insp_disconnect

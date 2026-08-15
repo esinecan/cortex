@@ -33,6 +33,11 @@ const connectionProperties = {
     items: { type: "string" as const },
     description: "Arguments to pass to the command (e.g., ['build/index.js'])",
   },
+  env: {
+    type: "object" as const,
+    additionalProperties: { type: "string" as const },
+    description: "Environment variables for the spawned server (stdio transport only)",
+  },
   url: {
     type: "string" as const,
     description: "URL for SSE/HTTP transport (alternative to command)",
@@ -83,6 +88,7 @@ const TOOLS: Tool[] = [
       properties: {
         command: connectionProperties.command,
         args: connectionProperties.args,
+        env: connectionProperties.env,
         url: connectionProperties.url,
         transport: connectionProperties.transport,
         negotiation: connectionProperties.negotiation,
@@ -265,6 +271,7 @@ function extractConfig(args: Record<string, unknown>): TransportConfig {
   return {
     command: args.command as string | undefined,
     args: args.args as string[] | undefined,
+    env: args.env as Record<string, string> | undefined,
     url: args.url as string | undefined,
     transport: args.transport as TransportType | undefined,
     negotiation: args.negotiation as NegotiationMode | undefined,
@@ -407,7 +414,7 @@ async function handleToolCall(name: string, args: Record<string, unknown>): Prom
 
 import { createServer } from "http";
 
-// Overridable so co-resident deployments don't fight over the port -- the
+// Overridable so co-resident deployments don't fight over the port — the
 // second instance to bind would otherwise silently lose steering (EADDRINUSE
 // is only a stderr warning).
 const STEERING_HTTP_PORT = Number(process.env.INSPECTOR_STEERING_PORT ?? 9847);

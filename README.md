@@ -83,7 +83,7 @@ Tasks survive across sessions. They accumulate findings, track state history, an
 
 ### Dynamic Pathways
 
-Beyond static pathways, agents can generate pathways at runtime with `pathway_generate`. Each step has acceptance criteria that must be proven with evidence before the agent can advance -- turning the workflow into a gated, verifiable process.
+Beyond static pathways, agents can generate pathways at runtime with `pathway_generate`. Each step has acceptance criteria that must be proven with evidence before the agent can advance -- turning the workflow into a gated, verifiable process. `pathway_reset(task_id, reason)` removes a task's generated pathway, so `pathway_generate` can attach a new one.
 
 ---
 

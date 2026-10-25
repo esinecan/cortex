@@ -8,7 +8,7 @@ import { resolveState, getStateNames } from '../states.js';
 import { success, error } from '../respond.js';
 
 /**
- * Pathway tools: generate, advance, prove, and status for runtime-generated pathways.
+ * Pathway tools: generate, advance, prove, status and reset for runtime-generated pathways.
  * All registered as always-on since pathway management spans states.
  */
 export function registerPathwayTools(server: McpServer, state: StateManager): void {
@@ -60,7 +60,7 @@ export function registerPathwayTools(server: McpServer, state: StateManager): vo
       if (task.status !== 'active')
         return error(`Task ${args.task_id} is ${task.status}, not active.`);
       if (task.generated_pathway)
-        return error('Task already has a generated pathway. Complete or reset it first.');
+        return error(`Task already has a generated pathway. Call pathway_reset(task_id="${args.task_id}", reason="...") to remove it first.`);
       if (task.pathway)
         return error(
           `Task has static pathway "${task.pathway}". Clear it before generating a dynamic one.`,
@@ -413,4 +413,40 @@ export function registerPathwayTools(server: McpServer, state: StateManager): vo
     },
   );
   state.registerTool('pathway_status', 'always-on', statusHandle);
+
+  const resetHandle = server.registerTool(
+    'pathway_reset',
+    {
+      description:
+        'Remove the generated pathway from a task so pathway_generate can attach a new one. The old goal and progress go into the task findings.',
+      inputSchema: {
+        task_id: z.string().describe('Task whose generated pathway to remove'),
+        reason: z.string().describe('Why the pathway is replaced'),
+      },
+    },
+    async (args) => {
+      const task = getTask(args.task_id);
+      if (!task) return error(`Task ${args.task_id} not found.`);
+      if (!task.generated_pathway)
+        return error(`Task ${args.task_id} has no generated pathway.`);
+
+      const gp = task.generated_pathway;
+      const completed = gp.steps.filter((s) => s.status === 'completed').length;
+      delete task.generated_pathway;
+      saveTask(task);
+
+      updateTask(
+        args.task_id,
+        {
+          findings: `[pathway:reset] "${gp.goal}" removed at ${completed}/${gp.steps.length} steps. Reason: ${args.reason}`,
+        },
+        state.getCurrentState(),
+      );
+
+      return success(
+        `## Pathway Reset\n\nRemoved "${gp.goal}" (${completed}/${gp.steps.length} steps done). Call \`pathway_generate(task_id="${args.task_id}", ...)\` to attach a new pathway.`,
+      );
+    },
+  );
+  state.registerTool('pathway_reset', 'always-on', resetHandle);
 }

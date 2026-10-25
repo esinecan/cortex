@@ -169,7 +169,6 @@ Cortex ships with these integrations:
 | Server       | State     | What It Provides                                    |
 | ------------ | --------- | --------------------------------------------------- |
 | Playwright   | browse    | Browser automation for E2E testing and web research |
-| Brave Search | recon     | Web search and summarization                        |
 | GitHub       | recon     | Repository exploration, PR reading, code search     |
 | Commands     | implement | Shell command execution                             |
 | Inspector    | debug     | Connect to and probe other MCP servers              |

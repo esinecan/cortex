@@ -8,7 +8,7 @@
 # in the daemon and survive cortex restarts). 'tool_prefix' (optional, either kind)
 # prefixes remote tool names on registration for daemons that list bare names.
 # External servers can pull env vars from ~/.claude.json via `env_from_claude: <server-name>`
-# (e.g. brave-search uses this for BRAVE_API_KEY without putting it in this file).
+# (e.g. env_from_claude: brave-search copies BRAVE_API_KEY from that entry without putting it in this file).
 #
 # To add your own server:
 #   1. Add an entry below (external or vendored)
@@ -48,22 +48,10 @@ external:
       - browser_wait_for
       - browser_tabs
 
-  # Search fallback, not the default. Demoted on the 07.08.2026 three-channel bakeoff:
-  # google-search reached ~25 productive domains to Brave's ~13, and Brave rate-limits at
-  # 4-wide parallel batches. Reach for this when google-search returns rate_limited.
-  #
-  # google-search is not proxied here on purpose. It is always-on via ~/.claude.json, so
-  # it is reachable as mcp__google-search__* regardless of state; proxying it here (now
-  # possible with a 'url' entry) would only duplicate that surface.
-  brave-search:
-    command: npx
-    args: [-y, '@brave/brave-search-mcp-server']
-    discovery_state: recon
-    curated_tools:
-      - brave_web_search
-    env:
-      BRAVE_API_KEY: ''
-    env_from_claude: brave-search
+  # google-search and brave-search are not proxied here on purpose. Both are always-on via
+  # ~/.claude.json, so they are reachable as mcp__google-search__* and mcp__brave-search__*
+  # regardless of state; proxying them here would only duplicate that surface and start
+  # one more server for every cortex process.
 
   # The shared isession daemon (~/rig/isession, http_server.py on :8765) -- interactive
   # PTY sessions held OUTSIDE cortex, so they survive cortex restarts and live in one

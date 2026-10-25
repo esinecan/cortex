@@ -79,7 +79,7 @@ The catch: this only helps if you actually use it. Skipping the think step
 because you "already know" is the failure mode it exists to prevent.
 
 ## Pluggability
-Cortex proxies external MCP servers (Playwright, Brave Search, GitHub, etc.).
+Cortex proxies external MCP servers (Playwright, GitHub, etc.).
 Add your own via mcp-servers.yaml -- tools appear automatically in the right state.
 `.trim();
 }

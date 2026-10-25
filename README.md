@@ -2,11 +2,11 @@
 
 **An executive function layer for AI agents, designed like a choose-your-own-adventure book.**
 
-States are chapters. Pathways are storylines. Tools appear based on where you are in the story.  
-The agent doesn't see everything at once -- it sees what's relevant to the current phase of work,  
+States are chapters. Pathways are storylines. Which tools the agent may call depends on where the agent is in the story.  
+Every tool stays listed, and a call outside its chapter returns the chapter that allows it, so the agent works on what is relevant to the current phase of work,  
 guided through structured workflows that enforce good engineering discipline.
 
-Cortex is an [MCP](https://modelcontextprotocol.io/) server that sits between your AI agent (Claude, etc.) and the tools it uses. It manages **what tools are visible when**, **what the agent should do next**, and **what it remembers across sessions**.
+Cortex is an [MCP](https://modelcontextprotocol.io/) server that sits between your AI agent (Claude, etc.) and the tools it uses. It manages **which tools may be called when**, **what the agent should do next**, and **what it remembers across sessions**.
 
 ---
 
@@ -27,9 +27,9 @@ Cortex is an [MCP](https://modelcontextprotocol.io/) server that sits between yo
                   │  └────┬────┘  └───────────────┘   │
                   │       │                            │
                   │  ┌────▼────────────────────────┐   │
-                  │  │    Tool Visibility Gate      │   │
-                  │  │  (only shows tools for the   │   │
-                  │  │   current state/chapter)     │   │
+                  │  │       Tool Call Gate         │   │
+                  │  │  (runs a call only in a      │   │
+                  │  │   state that allows it)      │   │
                   │  └────┬────────────────────────┘   │
                   └───────┼────────────────────────-───┘
                           │ proxies
@@ -44,7 +44,7 @@ Cortex is an [MCP](https://modelcontextprotocol.io/) server that sits between yo
 
 ### The State Machine
 
-At any moment, the agent is in one **state** (chapter). Each state exposes a specific set of tools and enforces constraints. This prevents the agent from editing code during investigation, or running tests before it has a plan.
+At any moment, the agent is in one **state** (chapter). Each state allows a specific set of tools and enforces constraints. Every tool stays in the tool list; a call to a tool that the current state does not allow returns a message that names the state that allows it. This prevents the agent from editing code during investigation, or running tests before it has a plan.
 
 | State       | Chapter       | What the Agent Does                                  |
 | ----------- | ------------- | ---------------------------------------------------- |
@@ -160,7 +160,7 @@ external:
       - dd_top_values
 ```
 
-The server's tools will automatically appear when the agent enters the `debug` state. See [BRIDGES.md](BRIDGES.md) for the full integration guide.
+The server's tools can be called while the agent is in the `debug` state; a call from another state returns a pointer to `debug`. See [BRIDGES.md](BRIDGES.md) for the full integration guide.
 
 ### Default Servers
 
@@ -205,7 +205,7 @@ src/
 ### Key Design Decisions
 
 - **Declarative over imperative**: States, pathways, and server configs are YAML. The engine is generic.
-- **Tool visibility gating**: Tools don't exist outside their state. The agent can't accidentally run tests during recon.
+- **Call-time gating**: Every tool stays in the tool list, so a state change never removes tools from the client. A call outside the tool's state returns a message that names the state that allows it (`registerTool` and `isToolAllowed` in `src/state.ts`); state `free` allows every tool, and the active step of a generated pathway narrows the set. With `CORTEX_DISPATCHER_MODE=proxied`, proxied tools are left out of the list and reached through `cortex_call` and `cortex_describe`. The agent can't accidentally run tests during recon.
 - **Persistent everything**: Tasks, findings, state history survive session death. The agent picks up where it left off.
 - **Progressive capability**: Leveled states (validate L1→L2→L3) gate complexity. Simple checks before browser automation.
 - **Pluggable backends**: Swap Datadog for Grafana, MongoDB for PostgreSQL -- cortex doesn't care. Add a YAML entry, restart.

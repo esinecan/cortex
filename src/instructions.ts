@@ -38,7 +38,7 @@ Create a task with a pathway: \`task_create(title, pathway="golden")\`
 
 ## How It Works
 Cortex is a state machine. You are always in one **state** (chapter).
-Each state shows you different tools and constraints. Transition with \`enter_state\`.
+Each state allows different tools and sets different constraints; a call outside a tool's state returns the state to enter. Transition with \`enter_state\`.
 
 | State | You are... | Key tools |
 |-------|-----------|-----------|
@@ -80,6 +80,6 @@ because you "already know" is the failure mode it exists to prevent.
 
 ## Pluggability
 Cortex proxies external MCP servers (Playwright, GitHub, etc.).
-Add your own via mcp-servers.yaml -- tools appear automatically in the right state.
+Add your own via mcp-servers.yaml -- its tools can be called in the state that its discovery_state names.
 `.trim();
 }

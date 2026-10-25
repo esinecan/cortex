@@ -113,6 +113,7 @@ export async function proxyMcpServer(
   server: McpServer,
   stateManager: StateManager,
   config: ProxyConfig,
+  options: { hidden?: boolean } = {},
 ): Promise<{ total: number; curated: number }> {
   let transport: StdioClientTransport | StreamableHTTPClientTransport;
   if (config.url) {
@@ -144,54 +145,61 @@ export async function proxyMcpServer(
 
   const toolNames: string[] = [];
 
-  for (const tool of remoteTools) {
-    // Daemons behind a name-prefixing client (e.g. isession's HTTP server) list
-    // bare tool names; restore the prefix locally so registered names stay
-    // unambiguous (isession_open, not open). The remote is still called with
-    // the name it advertised.
-    const remoteName = tool.name;
-    const toolName =
-      config.toolPrefix && !remoteName.startsWith(config.toolPrefix)
-        ? config.toolPrefix + remoteName
-        : remoteName;
-    const isCurated = !curatedSet || curatedSet.has(toolName);
-    const zodShape = jsonSchemaToZodShape(tool.inputSchema as Record<string, unknown>);
-    const hasParams = Object.keys(zodShape).length > 0;
+  const live = server.isConnected();
+  const notify = server.sendToolListChanged;
+  if (live) server.sendToolListChanged = () => {};
+  try {
+    for (const tool of remoteTools) {
+      // Daemons behind a name-prefixing client (e.g. isession's HTTP server) list
+      // bare tool names; restore the prefix locally so registered names stay
+      // unambiguous (isession_open, not open). The remote is still called with
+      // the name it advertised.
+      const remoteName = tool.name;
+      const toolName =
+        config.toolPrefix && !remoteName.startsWith(config.toolPrefix)
+          ? config.toolPrefix + remoteName
+          : remoteName;
+      const isCurated = !curatedSet || curatedSet.has(toolName);
+      const zodShape = jsonSchemaToZodShape(tool.inputSchema as Record<string, unknown>);
+      const hasParams = Object.keys(zodShape).length > 0;
 
-    const handle = server.registerTool(
-      toolName,
-      {
-        description: tool.description || '',
-        ...(hasParams ? { inputSchema: zodShape } : {}),
-      },
-      async (args: Record<string, unknown>) => {
-        const loopStatus = stateManager.recordToolCall(toolName);
-        const result = await client.callTool({
-          name: remoteName,
-          arguments: args,
-        });
-        if (
-          loopStatus.loopSuspected &&
-          result &&
-          typeof result === 'object' &&
-          'content' in result
-        ) {
-          const content = (result as any).content;
-          if (Array.isArray(content)) {
-            content.push({ type: 'text', text: `\n\n${loopStatus.warning}` });
+      const handle = server.registerTool(
+        toolName,
+        {
+          description: tool.description || '',
+          ...(hasParams ? { inputSchema: zodShape } : {}),
+        },
+        async (args: Record<string, unknown>) => {
+          const loopStatus = stateManager.recordToolCall(toolName);
+          const result = await client.callTool({
+            name: remoteName,
+            arguments: args,
+          });
+          if (
+            loopStatus.loopSuspected &&
+            result &&
+            typeof result === 'object' &&
+            'content' in result
+          ) {
+            const content = (result as any).content;
+            if (Array.isArray(content)) {
+              content.push({ type: 'text', text: `\n\n${loopStatus.warning}` });
+            }
           }
-        }
-        return result as any;
-      },
-    );
+          return result as any;
+        },
+      );
 
-    const assignedState = isCurated ? `${config.state}:curated` : `${config.state}:discoverable`;
-    stateManager.registerTool(toolName, assignedState, handle);
-
-    // Leave enabled at registration. enterState() in index.ts will apply
-    // correct visibility before transport connects. This ensures CC's initial
-    // tools/list sees all registered tools (enabled or not after gating).
-    toolNames.push(toolName);
+      const assignedState = isCurated ? `${config.state}:curated` : `${config.state}:discoverable`;
+      stateManager.registerTool(toolName, assignedState, handle);
+      if (options.hidden) handle.disable();
+      toolNames.push(toolName);
+    }
+  } finally {
+    if (live) {
+      server.sendToolListChanged = notify;
+      server.sendToolListChanged();
+    }
   }
 
   proxiedServers.set(config.name, {

@@ -8,6 +8,9 @@ import { homedir } from 'os';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const TASKS_DIR = process.env.CORTEX_TASKS_DIR || join(homedir(), '.cortex');
 const PORT = process.env.CORTEX_DASH_PORT || 3456;
+// Loopback by default: this server has no auth and serves cortex task contents.
+// Set CORTEX_DASH_HOST=0.0.0.0 to expose it on the LAN deliberately.
+const HOST = process.env.CORTEX_DASH_HOST || '127.0.0.1';
 
 // --- Static config (loaded once) ---
 
@@ -930,10 +933,20 @@ function renderTaskRow(t, activeId) {
     + '</div>';
 
   if (children.length && expanded) {
-    const sortedKids = [...children].sort((a, b) => new Date(b.updated) - new Date(a.updated));
+    const sortedKids = sortTasks(children);
     html += '<div class="task-children">' + sortedKids.map(c => renderTaskRow(c, activeId)).join('') + '</div>';
   }
   return html;
+}
+
+// Active tasks first; within each group, most recently updated first.
+function sortTasks(list) {
+  return [...list].sort((a, b) => {
+    const aAct = a.status === 'active' ? 0 : 1;
+    const bAct = b.status === 'active' ? 0 : 1;
+    if (aAct !== bAct) return aAct - bAct;
+    return new Date(b.updated) - new Date(a.updated);
+  });
 }
 
 function renderTasks(state, tasks) {
@@ -949,7 +962,7 @@ function renderTasks(state, tasks) {
   }
   renderTaskRow._byParent = byParent;
 
-  const roots = (byParent.get(null) || []).sort((a, b) => new Date(b.updated) - new Date(a.updated));
+  const roots = sortTasks(byParent.get(null) || []);
   el.innerHTML = roots.map(t => renderTaskRow(t, state.active_task)).join('');
 }
 
@@ -1114,6 +1127,6 @@ const server = createServer((req, res) => {
   res.end('Not found');
 });
 
-server.listen(PORT, () => {
-  console.log(`Cortex Dashboard: http://localhost:${PORT}`);
+server.listen(PORT, HOST, () => {
+  console.log(`Cortex Dashboard: http://${HOST}:${PORT}`);
 });

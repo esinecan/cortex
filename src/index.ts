@@ -24,6 +24,7 @@ import { registerDispatcher } from './dispatcher.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = join(__dirname, '..');
+const PROXY_WAIT_MS = 8000;
 
 async function main(): Promise<void> {
   // Stage 1: Load state and pathway definitions
@@ -54,29 +55,24 @@ async function main(): Promise<void> {
   registerThinkTools(server, state);
 
   // Stage 4b: Proxy external MCP servers
-  await proxyExternalServers(server, state);
+  const dispatcherMode = process.env.CORTEX_DISPATCHER_MODE ?? 'off';
+  const hidden = dispatcherMode === 'proxied';
+  await proxyExternalServers(server, state, hidden);
 
   // Stage 4c: Optional dispatcher mode for clients that ignore listChanged.
   // CORTEX_DISPATCHER_MODE=proxied:
   //   - Register cortex_call + cortex_describe (always-on umbrellas).
-  //   - Disable the SDK handles for every proxied tool BEFORE server.connect,
-  //     so they are born-disabled and never appear in the connect-time
-  //     tools/list snapshot. This avoids the "MCP server disconnected" toast
-  //     that vanishing tools trigger on clients that snapshot at connect.
+  //   - Every proxied tool is born disabled, so it never appears in the
+  //     connect-time tools/list snapshot. This avoids the "MCP server
+  //     disconnected" toast that vanishing tools trigger on clients that
+  //     snapshot at connect.
   //   - Native tools stay visible so the LLM still drives the state machine.
   // Default (off): no dispatcher, no disables, byte-for-byte today's behavior.
-  const dispatcherMode = process.env.CORTEX_DISPATCHER_MODE ?? 'off';
-  if (dispatcherMode === 'proxied') {
+  if (hidden) {
     registerDispatcher(server, state);
     let suppressed = 0;
     for (const { toolNames } of getAllProxiedServers().values()) {
-      for (const name of toolNames) {
-        const entry = state.getRegistryEntry(name);
-        if (entry) {
-          entry.handle.disable();
-          suppressed++;
-        }
-      }
+      suppressed += toolNames.length;
     }
     process.stderr.write(
       `[cortex] Dispatcher mode: ${suppressed} proxied tools hidden behind cortex_call/cortex_describe.\n`,
@@ -116,16 +112,42 @@ async function main(): Promise<void> {
   });
 }
 
-async function proxyExternalServers(server: McpServer, state: StateManager): Promise<void> {
+async function proxyExternalServers(
+  server: McpServer,
+  state: StateManager,
+  hidden: boolean,
+): Promise<void> {
   const configs = loadMcpServers(PROJECT_ROOT);
+  const started = Date.now();
+  const pending = new Set(configs.map((config) => config.name));
 
-  for (const config of configs) {
-    try {
-      const result = await proxyMcpServer(server, state, config);
-      process.stderr.write(`[cortex] ${config.name}: ${result.curated}/${result.total} tools\n`);
-    } catch (err) {
-      process.stderr.write(`[cortex] ${config.name} failed (non-fatal): ${err}\n`);
-    }
+  const all = Promise.all(
+    configs.map(async (config) => {
+      try {
+        const result = await proxyMcpServer(server, state, config, { hidden });
+        const late = server.isConnected() ? ` (late, ${Date.now() - started}ms)` : '';
+        process.stderr.write(
+          `[cortex] ${config.name}: ${result.curated}/${result.total} tools${late}\n`,
+        );
+      } catch (err) {
+        process.stderr.write(`[cortex] ${config.name} failed (non-fatal): ${err}\n`);
+      } finally {
+        pending.delete(config.name);
+      }
+    }),
+  );
+
+  let timer: NodeJS.Timeout | undefined;
+  const deadline = new Promise<void>((resolve) => {
+    timer = setTimeout(resolve, PROXY_WAIT_MS);
+  });
+  await Promise.race([all, deadline]);
+  clearTimeout(timer);
+
+  if (pending.size > 0) {
+    process.stderr.write(
+      `[cortex] still starting after ${PROXY_WAIT_MS}ms, tools arrive later: ${[...pending].join(', ')}\n`,
+    );
   }
 }
 

@@ -15,6 +15,10 @@ import {
 describe('Task System', () => {
   let tmpDir: string;
 
+  it('allows up to 10 active root tasks', () => {
+    expect(MAX_ACTIVE_ROOT_TASKS).toBe(10);
+  });
+
   beforeEach(() => {
     tmpDir = mkdtempSync(join(tmpdir(), 'cortex-test-'));
     setTasksDir(tmpDir);

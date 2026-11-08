@@ -261,13 +261,27 @@ export function getGeneratedPathwayContext(gp: GeneratedPathway): string {
   return lines.join('\n');
 }
 
-/** Render all tasks as a markdown tree with status, finding count, and latest finding preview. */
-export function listAllTasks(): string {
+export const OPEN_TASK_STATUSES: TaskStatus[] = ['active', 'paused', 'blocked'];
+export const DEFAULT_TASK_LIST_LIMIT = 30;
+
+/** Render root tasks as a markdown tree, open tasks by default, most recently updated first. */
+export function listAllTasks(
+  opts: { status?: TaskStatus | 'open' | 'all'; limit?: number } = {},
+): string {
   const tasks = listTasks();
   if (tasks.length === 0) return 'No persistent tasks.';
 
-  const roots = tasks.filter((t) => !t.parent);
-  const lines: string[] = ['# Persistent Tasks', ''];
+  const status = opts.status ?? 'open';
+  const limit = Math.max(1, opts.limit ?? DEFAULT_TASK_LIST_LIMIT);
+  const allRoots = tasks.filter((t) => !t.parent);
+  const matching = allRoots
+    .filter((t) =>
+      status === 'all' ? true : status === 'open' ? OPEN_TASK_STATUSES.includes(t.status) : t.status === status,
+    )
+    .sort((a, b) => (b.updated ?? '').localeCompare(a.updated ?? ''));
+  const roots = matching.slice(0, limit);
+  const lines: string[] = [`# Persistent Tasks (${status})`, ''];
+  if (roots.length === 0) lines.push(`No ${status} root tasks.`);
 
   for (const task of roots) {
     const findingCount = task.findings.length;
@@ -285,6 +299,14 @@ export function listAllTasks(): string {
         lines.push(`  - **[${sub.status}]** ${sub.id}: ${sub.title}`);
       }
     }
+  }
+
+  const omitted = allRoots.length - roots.length;
+  if (omitted > 0) {
+    lines.push('');
+    lines.push(
+      `${omitted} other root tasks not shown (${matching.length - roots.length} more ${status}, ${allRoots.length - matching.length} with another status). Pass status (open, all, or one status) and limit to see them.`,
+    );
   }
 
   return lines.join('\n');

@@ -164,5 +164,23 @@ describe('Task System', () => {
       expect(result).toContain('Task B');
       expect(result).toContain('[active]');
     });
+
+    it('lists open tasks by default and counts the rest', () => {
+      createTask('Open task', '');
+      const { task: done } = createTask('Done task', '');
+      updateTask(done!.id, { status: 'completed' });
+      const result = listAllTasks();
+      expect(result).toContain('Open task');
+      expect(result).not.toContain('Done task');
+      expect(result).toContain('1 other root tasks not shown');
+      expect(listAllTasks({ status: 'all' })).toContain('Done task');
+    });
+
+    it('caps the list at the limit', () => {
+      for (let i = 0; i < 5; i++) createTask(`Cap ${i}`, '');
+      const result = listAllTasks({ limit: 2 });
+      expect((result.match(/\*\*\[active\]\*\*/g) ?? []).length).toBe(2);
+      expect(result).toContain('3 other root tasks not shown');
+    });
   });
 });

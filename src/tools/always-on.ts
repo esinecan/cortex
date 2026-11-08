@@ -144,12 +144,20 @@ export function registerAlwaysOnTools(server: McpServer, state: StateManager): v
   const taskListHandle = server.registerTool(
     'task_list',
     {
-      description: 'List all persistent tasks with status and latest findings.',
+      description:
+        'List persistent root tasks with status and latest finding, most recently updated first. Default: open tasks (active, paused, blocked), at most 30.',
+      inputSchema: {
+        status: z
+          .enum(['open', 'all', 'active', 'paused', 'blocked', 'completed', 'abandoned'])
+          .optional()
+          .describe('Which tasks to list (default open)'),
+        limit: z.number().int().positive().optional().describe('Most root tasks to list (default 30)'),
+      },
     },
-    async () => {
+    async (args) => {
       return respond(
         state,
-        listAllTasks(),
+        listAllTasks({ status: args.status, limit: args.limit }),
         'Resume a task with `task_context(id)`, or `task_create` to start new work.',
       );
     },

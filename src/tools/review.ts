@@ -216,7 +216,7 @@ export function registerReviewTools(server: McpServer, state: StateManager): voi
           '### PR Prep',
           '- [ ] Diff is focused (no unrelated changes)',
           '- [ ] Commit messages are descriptive',
-          '- [ ] Tests pass locally',
+          '- [ ] The tests the change reaches pass locally; CI runs the full suite',
           '- [ ] No TODO/FIXME without ticket references',
           '- [ ] Types are explicit (no implicit any)',
           '',

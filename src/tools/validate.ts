@@ -22,7 +22,7 @@ export function defaultChecks(cwd: string): Array<{ name: string; check: string;
       if (pkg.scripts?.test) {
         checks.push({
           name: 'Test suite',
-          check: 'npm test',
+          check: 'npm test on the tests the change reaches; CI runs the full suite',
           fix: 'fix failing tests before validating',
         });
       }
